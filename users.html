@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CompTrack — User Management</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="layout">
+  <div id="sidebar-wrap"></div>
+  <main class="main">
+    <div class="topbar">
+      <h1 class="page-title">User Management</h1>
+      <div class="topbar-actions">
+        <button class="btn btn-primary btn-sm" onclick="toast('Invite user feature coming soon','info')">+ Invite User</button>
+      </div>
+    </div>
+    <div class="content" id="page-content"></div>
+  </main>
+</div>
+<div id="modal-placeholder"></div>
+<script src="app.js"></script>
+<script>
+const user = requireAuth(['superadmin']);
+if (user) {
+  initSidebar('users.html', user);
+  document.getElementById('modal-placeholder').innerHTML = MODAL_HTML;
+
+  (async () => {
+  const allUsers = await getAllUsers();
+
+  document.getElementById('page-content').innerHTML = `
+  <div class="stats-grid">
+    <div class="stat-card blue"><div class="stat-label">Total Users</div><div class="stat-value">${allUsers.length}</div></div>
+    <div class="stat-card green"><div class="stat-label">Students</div><div class="stat-value">${allUsers.filter(u=>u.role==='student').length}</div></div>
+    <div class="stat-card warn"><div class="stat-label">PIC / Faculty</div><div class="stat-value">${allUsers.filter(u=>u.role==='pic'||u.role==='faculty').length}</div></div>
+    <div class="stat-card teal"><div class="stat-label">Admins</div><div class="stat-value">${allUsers.filter(u=>u.role==='superadmin').length}</div></div>
+  </div>
+  <div class="card">
+    <div class="card-title">All Users</div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Name</th><th>NIM/ID</th><th>Email</th><th>Major</th><th>Role</th><th>Actions</th></tr></thead>
+        <tbody>
+          ${allUsers.map(u => `
+          <tr>
+            <td>
+              <div style="display:flex;align-items:center;gap:10px">
+                <div class="user-avatar" style="width:32px;height:32px;font-size:13px;background:${u.color}">${u.name.charAt(0)}</div>
+                <span class="td-main">${u.name}</span>
+              </div>
+            </td>
+            <td style="color:var(--text2)">${u.nim||'—'}</td>
+            <td style="font-size:12px;color:var(--text3)">${u.email}</td>
+            <td>${u.major||'—'}</td>
+            <td><span class="status status-submitted">${roleLabel(u.role)}</span></td>
+            <td style="display:flex;gap:6px">
+              <button class="btn btn-ghost btn-sm" onclick="toast('Edit user feature coming soon','info')">Edit</button>
+              <button class="btn btn-danger btn-sm" onclick="toggleUserActive('" + u.id + "').then(r=>{ toast(r.message,'info'); location.reload(); })">Disable</button>
+            </td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>
+  </div>`;
+  })();
+}
+</script>
+</body>
+</html>

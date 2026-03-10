@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CompTrack — Dashboard</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="layout">
+  <div id="sidebar-wrap"></div>
+  <main class="main">
+    <div class="topbar">
+      <h1 class="page-title">Dashboard</h1>
+      <div class="topbar-actions" id="topbar-actions"></div>
+    </div>
+    <div class="content" id="page-content"></div>
+  </main>
+</div>
+<div id="modal-placeholder"></div>
+<script src="app.js"></script>
+<script>
+const user = requireAuth();
+if (user) {
+  document.getElementById('modal-placeholder').innerHTML = MODAL_HTML;
+  (async () => {
+  await initSidebar('dashboard.html', user);
+  const role = user.role;
+  const competitions = await getCompetitions(role === 'student' ? { submitted_by: user.id } : {});
+
+  const myComps = competitions; // API already filters by submitted_by for students
+  const pending = competitions.filter(c => c.status === 'submitted').length;
+  const picPending = competitions.filter(c => c.status === 'pic_approved').length;
+  const completed = myComps.filter(c => c.status === 'completed').length;
+  const activeStatuses = ['submitted','pic_approved','faculty_approved','letter_generated','completed'];
+  const totalFunding = myComps.filter(c => activeStatuses.includes(c.status)).reduce((s,c) => s + (c.funding||0), 0);
+
+  if (role === 'student') {
+    document.getElementById('topbar-actions').innerHTML =
+      `<a href="submissions.html" class="btn btn-primary btn-sm">+ New Submission</a>`;
+  }
+
+  // --- Bar chart: real submissions per month (last 7 months) ---
+  const monthLabels = [];
+  const barData = [];
+  const now = new Date();
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    monthLabels.push(d.toLocaleString('default', { month: 'short' }));
+    const count = myComps.filter(c => {
+      const sub = c.submittedAt || c.created_at;
+      if (!sub) return false;
+      const cd = new Date(sub);
+      return cd.getFullYear() === d.getFullYear() && cd.getMonth() === d.getMonth();
+    }).length;
+    barData.push(count);
+  }
+  const maxBar = Math.max(...barData, 1);
+
+  // --- Donut chart: real level distribution ---
+  const levels = ['national', 'regional', 'international'];
+  const levelColors = { national: '#4f8aff', regional: '#00d4aa', international: '#7c5cfc' };
+  const levelCounts = {};
+  levels.forEach(l => levelCounts[l] = myComps.filter(c => c.level === l).length);
+  const total = myComps.length || 1;
+  const levelPcts = {};
+  levels.forEach(l => levelPcts[l] = levelCounts[l] / total);
+
+  // Build SVG arcs
+  const circ = 175.9;
+  let offset = 0;
+  const arcs = levels.map(l => {
+    const pct = levelPcts[l];
+    const arc = `<circle cx="40" cy="40" r="28" fill="none" stroke="${levelColors[l]}" stroke-width="14"
+      stroke-dasharray="${pct * circ} ${circ}" stroke-dashoffset="${-offset * circ}" transform="rotate(-90 40 40)"/>`;
+    offset += pct;
+    return { arc, pct, label: l.charAt(0).toUpperCase() + l.slice(1), color: levelColors[l] };
+  });
+
+  const months = monthLabels;
+
+  document.getElementById('page-content').innerHTML = `
+  <div class="stats-grid">
+    <div class="stat-card blue">
+      <div class="stat-label">Total Submissions</div>
+      <div class="stat-value">${myComps.length}</div>
+      <div class="stat-sub">All time</div>
+    </div>
+    <div class="stat-card green">
+      <div class="stat-label">Completed</div>
+      <div class="stat-value">${completed}</div>
+      <div class="stat-sub">With achievement report</div>
+    </div>
+    <div class="stat-card warn">
+      <div class="stat-label">Pending PIC</div>
+      <div class="stat-value">${pending}</div>
+      <div class="stat-sub">Awaiting approval</div>
+    </div>
+    ${role !== 'student' ? `<div class="stat-card red">
+      <div class="stat-label">Faculty Pending</div>
+      <div class="stat-value">${picPending}</div>
+      <div class="stat-sub">After PIC approval</div>
+    </div>` : `<div class="stat-card teal">
+      <div class="stat-label">Total Funding</div>
+      <div class="stat-value">${formatFunding(totalFunding)}</div>
+      <div class="stat-sub">IDR requested</div>
+    </div>`}
+  </div>
+
+  <div class="chart-grid">
+    <div class="mini-chart">
+      <div class="mini-chart-title">📈 Submissions per Month</div>
+      <div class="bar-chart">
+        ${barData.map((v,i) => `
+          <div class="bar-wrap">
+            <div class="bar" style="height:${(v/maxBar)*100}%" title="${v} submissions"></div>
+            <div class="bar-label">${months[i]}</div>
+          </div>`).join('')}
+      </div>
+    </div>
+    <div class="mini-chart">
+      <div class="mini-chart-title">🌐 Level Distribution</div>
+      <div class="donut-wrap">
+        ${myComps.length === 0
+          ? `<div style="color:var(--text3);font-size:13px;padding:20px 0;text-align:center">No data yet</div>`
+          : `<svg width="80" height="80" viewBox="0 0 80 80">
+              <circle cx="40" cy="40" r="28" fill="none" stroke="#232d45" stroke-width="14"/>
+              ${arcs.map(a => a.arc).join('')}
+             </svg>
+             <div class="donut-legend">
+               ${arcs.map(a => `
+               <div class="legend-item">
+                 <div class="legend-dot" style="background:${a.color}"></div>
+                 <span class="legend-label">${a.label}</span>
+                 <span class="legend-val">${Math.round(a.pct * 100)}%</span>
+               </div>`).join('')}
+             </div>`}
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Recent Submissions</div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Competition</th><th>Level</th><th>Status</th><th>Date</th><th>Actions</th></tr></thead>
+        <tbody>
+          ${myComps.slice(0,5).map(c => `
+          <tr>
+            <td>
+              <div class="td-main">${c.name}</div>
+              <div style="font-size:11px;color:var(--text3)">${c.id}</div>
+            </td>
+            <td><span class="level-badge level-${c.level}">${c.level}</span></td>
+            <td><span class="status status-${c.status}">${statusLabel(c.status)}</span></td>
+            <td style="color:var(--text3);font-size:12px">${formatDate(c.submitted_at || c.submittedAt || c.created_at)}</td>
+            <td><button class="btn btn-ghost btn-sm" onclick="viewDetail('${c.id}',${JSON.stringify(user).replace(/"/g,'&quot;')})">View</button></td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>
+  </div>`;
+  })();
+}
+</script>
+</body>
+</html>
