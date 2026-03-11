@@ -1,0 +1,798 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CompTrack — My Profile</title>
+<link rel="stylesheet" href="style.css">
+<style>
+/* ── PROFILE-SPECIFIC STYLES ── */
+
+.profile-hero {
+  background: linear-gradient(135deg, #1b3a52 0%, #1e4b6d 40%, #1d5c7a 70%, #1f9b8a 100%);
+  border-radius: var(--radius);
+  padding: 32px;
+  margin-bottom: 24px;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 8px 32px rgba(27,58,82,0.22);
+}
+.profile-hero::before {
+  content: '';
+  position: absolute;
+  width: 340px; height: 340px; border-radius: 50%;
+  background: radial-gradient(circle, rgba(126,207,222,0.14) 0%, transparent 65%);
+  top: -100px; right: -80px; pointer-events: none;
+}
+.profile-hero::after {
+  content: '';
+  position: absolute;
+  width: 200px; height: 200px; border-radius: 50%;
+  background: radial-gradient(circle, rgba(46,134,171,0.18) 0%, transparent 65%);
+  bottom: -60px; left: 120px; pointer-events: none;
+}
+
+.profile-hero-inner {
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  position: relative;
+  z-index: 1;
+}
+
+.avatar-wrap { position: relative; flex-shrink: 0; }
+.avatar-large {
+  width: 84px; height: 84px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 32px; font-weight: 700; color: white;
+  border: 3px solid rgba(255,255,255,0.35);
+  box-shadow: 0 6px 22px rgba(0,0,0,0.22);
+  cursor: pointer; transition: all 0.2s;
+}
+.avatar-large:hover { opacity: 0.85; }
+.avatar-edit-badge {
+  position: absolute; bottom: 0; right: 0;
+  width: 26px; height: 26px; border-radius: 50%;
+  background: #2e86ab; border: 2px solid white;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12px; cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.2); transition: background 0.2s;
+}
+.avatar-edit-badge:hover { background: #26a69a; }
+
+.profile-hero-info { flex: 1; }
+.profile-hero-name {
+  font-family: var(--font-sans);
+  font-size: 24px; font-weight: 800; letter-spacing: -0.03em;
+  color: #fff; margin-bottom: 4px;
+}
+.profile-hero-meta {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+}
+.profile-hero-role {
+  background: rgba(255,255,255,0.18);
+  border: 1px solid rgba(255,255,255,0.28);
+  border-radius: 20px; padding: 3px 12px;
+  font-size: 11.5px; font-weight: 700;
+  color: rgba(255,255,255,0.92);
+  text-transform: uppercase; letter-spacing: 0.07em;
+}
+.profile-hero-email { font-size: 13px; color: rgba(255,255,255,0.65); }
+.profile-hero-nim   { font-size: 12px; color: rgba(255,255,255,0.5); font-family: monospace; letter-spacing: 0.04em; }
+
+.profile-hero-stats { display: flex; gap: 28px; margin-top: 20px; }
+.hero-stat { text-align: center; }
+.hero-stat-val {
+  font-family: var(--font-sans); font-size: 22px; font-weight: 800;
+  color: #fff; line-height: 1; letter-spacing: -0.02em;
+}
+.hero-stat-label {
+  font-size: 10px; color: rgba(255,255,255,0.55);
+  text-transform: uppercase; letter-spacing: 0.08em; margin-top: 3px;
+}
+.hero-stat-divider { width: 1px; background: rgba(255,255,255,0.14); margin: 0 4px; }
+
+/* ── TWO-COL LAYOUT ── */
+.profile-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+
+/* ── SECTION HEADERS ── */
+.section-head {
+  display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px;
+}
+.section-title-sm { font-size: 14px; font-weight: 700; color: var(--text); letter-spacing: -0.01em; }
+.section-badge-sm {
+  font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--text3); background: var(--surface3); border-radius: 20px; padding: 2px 9px;
+}
+
+/* ── FIELD ── */
+.field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px; }
+.field-row.full { grid-template-columns: 1fr; }
+.field-label {
+  font-size: 11px; font-weight: 700; color: var(--text3);
+  text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 6px; display: block;
+}
+.field-input {
+  width: 100%; background: var(--surface2); border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm); padding: 10px 14px; color: var(--text);
+  font-family: var(--font-sans); font-size: 13.5px; outline: none; transition: all 0.2s;
+}
+.field-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(46,134,171,0.1); }
+.field-input[readonly] { color: var(--text3); cursor: default; background: var(--surface3); }
+.field-hint  { font-size: 11px; color: var(--text3); margin-top: 4px; }
+.field-error { font-size: 11px; color: var(--danger); margin-top: 4px; }
+
+/* ── PASSWORD ── */
+.pw-wrap { position: relative; }
+.pw-wrap .field-input { padding-right: 42px; }
+.pw-toggle {
+  position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
+  background: none; border: none; cursor: pointer;
+  color: var(--text3); font-size: 15px; padding: 2px; transition: color 0.15s; line-height: 1;
+}
+.pw-toggle:hover { color: var(--accent); }
+
+/* ── PASSWORD STRENGTH ── */
+.pw-strength { display: flex; gap: 4px; margin-top: 8px; align-items: center; }
+.pw-strength-bar {
+  flex: 1; height: 4px; border-radius: 2px;
+  background: var(--surface3); transition: background 0.3s;
+}
+.pw-strength-label {
+  font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em;
+  color: var(--text3); min-width: 48px; text-align: right; transition: color 0.3s;
+}
+.pw-s1 .pw-strength-bar:nth-child(1)      { background: var(--danger); }
+.pw-s2 .pw-strength-bar:nth-child(-n+2)   { background: var(--warn); }
+.pw-s3 .pw-strength-bar:nth-child(-n+3)   { background: #3a8fd4; }
+.pw-s4 .pw-strength-bar                   { background: var(--success); }
+.pw-s1 .pw-strength-label { color: var(--danger); }
+.pw-s2 .pw-strength-label { color: var(--warn); }
+.pw-s3 .pw-strength-label { color: #3a8fd4; }
+.pw-s4 .pw-strength-label { color: var(--success); }
+
+/* ── ACTIVITY ── */
+.activity-list { display: flex; flex-direction: column; gap: 0; }
+.activity-item {
+  display: flex; gap: 14px; padding: 13px 0;
+  border-bottom: 1px solid rgba(204,221,233,0.5); align-items: flex-start;
+}
+.activity-item:last-child { border-bottom: none; }
+.activity-icon {
+  width: 34px; height: 34px; border-radius: 9px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center; font-size: 15px;
+}
+.ai-blue   { background: rgba(46,134,171,0.12); }
+.ai-green  { background: rgba(44,182,125,0.12); }
+.ai-orange { background: rgba(244,162,97,0.12); }
+.ai-red    { background: rgba(224,92,92,0.12); }
+.ai-teal   { background: rgba(38,166,154,0.12); }
+.activity-body { flex: 1; }
+.activity-action { font-size: 13px; font-weight: 500; color: var(--text); }
+.activity-detail { font-size: 11px; color: var(--text3); margin-top: 2px; }
+.activity-time   { font-size: 11px; color: var(--text3); white-space: nowrap; flex-shrink: 0; }
+
+/* ── SAVE STATUS ── */
+.btn-save-wrap { display: flex; align-items: center; gap: 12px; }
+.save-status {
+  font-size: 12px; color: var(--success); opacity: 0;
+  transition: opacity 0.3s; display: flex; align-items: center; gap: 5px;
+}
+.save-status.show { opacity: 1; }
+
+/* ── TABS ── */
+.profile-tabs {
+  display: flex; gap: 4px; margin-bottom: 20px;
+  background: var(--surface2); border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm); padding: 4px; width: fit-content;
+}
+.profile-tab {
+  padding: 7px 18px; border-radius: 6px; font-size: 12.5px; font-weight: 600;
+  cursor: pointer; transition: all 0.18s; border: none; background: none;
+  color: var(--text3); font-family: var(--font-sans);
+}
+.profile-tab.active { background: white; color: var(--text); box-shadow: 0 2px 8px rgba(46,134,171,0.12); }
+.profile-tab:hover:not(.active) { color: var(--text2); }
+
+/* ── COLOR PICKER ── */
+.color-picker-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+.color-swatch {
+  width: 28px; height: 28px; border-radius: 50%;
+  cursor: pointer; transition: all 0.18s;
+  border: 2.5px solid transparent;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.12);
+}
+.color-swatch:hover { transform: scale(1.15); }
+.color-swatch.selected { border-color: var(--text); transform: scale(1.1); }
+
+@media (max-width: 900px) {
+  .profile-grid { grid-template-columns: 1fr; }
+  .profile-hero-inner { flex-direction: column; align-items: flex-start; gap: 16px; }
+  .profile-hero-stats { gap: 18px; }
+}
+</style>
+</head>
+<body>
+<div class="layout">
+  <div id="sidebar-wrap"></div>
+  <main class="main">
+    <div class="topbar">
+      <h1 class="page-title">My Profile</h1>
+      <div class="topbar-actions">
+        <span id="last-updated" style="font-size:12px;color:rgba(255,255,255,0.6)"></span>
+      </div>
+    </div>
+    <div class="content" id="page-content">
+      <div style="text-align:center;padding:80px 20px;color:var(--text3)">
+        <div style="font-size:36px;margin-bottom:12px">⏳</div>
+        <div>Loading profile...</div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<div id="modal-placeholder"></div>
+<script src="app.js"></script>
+<script>
+const user = requireAuth();
+if (user) {
+  initSidebar('profile.html', user);
+  document.getElementById('modal-placeholder').innerHTML = MODAL_HTML;
+  initPage();
+}
+
+const AVATAR_COLORS = [
+  '#4f8aff','#7c5cfc','#00d4aa','#ff8c42','#ff5c6a',
+  '#ffb547','#26a69a','#5c6bc0','#2cb67d','#e05c5c',
+  '#3a8fd4','#f4a261',
+];
+
+let selectedColor  = user?.color || '#4f8aff';
+let profileStats   = { total: 0, completed: 0, pending: 0 };
+let cachedActivity = [];
+
+// ── LOCAL ACTIVITY LOG (sessionStorage) ─────────────
+const LOCAL_ACT_KEY = 'ct_profile_activity';
+
+function getLocalActivity() {
+  try { return JSON.parse(sessionStorage.getItem(LOCAL_ACT_KEY) || '[]'); }
+  catch { return []; }
+}
+
+function pushLocalActivity(action, detail) {
+  const entries = getLocalActivity();
+  entries.unshift({ action, detail, created_at: new Date().toISOString() });
+  sessionStorage.setItem(LOCAL_ACT_KEY, JSON.stringify(entries.slice(0, 50)));
+}
+
+function refreshLastUpdated() {
+  const now = new Date().toISOString();
+  const u = getCurrentUser();
+  if (u) { u.updated_at = now; setCurrentUser(u); }
+  const el = document.getElementById('last-updated');
+  if (el) el.textContent = 'Last updated just now';
+}
+
+function rebuildActivityTab() {
+  const local  = getLocalActivity();
+  const merged = [...local, ...(cachedActivity || [])].slice(0, 30);
+  const wrap   = document.getElementById('activity-list-wrap');
+  if (!wrap) return;
+  const badge = document.getElementById('activity-badge');
+  if (badge) badge.textContent = merged.length + ' entries';
+  if (merged.length) {
+    wrap.innerHTML = '<div class="activity-list">' + merged.map(a => activityRow(a)).join('') + '</div>';
+  } else {
+    wrap.innerHTML = `
+    <div class="empty-state" style="padding:40px 20px">
+      <div class="empty-icon">📋</div>
+      <div class="empty-title">No activity yet</div>
+      <div class="empty-sub">Your actions across the app will appear here</div>
+    </div>`;
+  }
+}
+
+// ── INIT ───────────────────────────────────────────
+async function initPage() {
+  const [competitions, activity] = await Promise.all([
+    getCompetitions(),
+    getActivityLog().catch(() => []),
+  ]);
+
+  profileStats.total     = competitions.length;
+  profileStats.completed = competitions.filter(c => c.status === 'completed').length;
+  profileStats.pending   = competitions.filter(c =>
+    ['submitted','pic_approved'].includes(c.status)
+  ).length;
+
+  cachedActivity = activity;
+
+  const lastUpd = user.updated_at || user.updatedAt;
+  const el = document.getElementById('last-updated');
+  if (el && lastUpd) el.textContent = 'Last updated ' + relativeTime(lastUpd);
+
+  renderProfile();
+}
+
+// ── RENDER ─────────────────────────────────────────
+function renderProfile() {
+  const roleIcons = { student:'🎓', pic:'👤', faculty:'🏛️', superadmin:'⚡' };
+  const icon = roleIcons[user.role] || '👤';
+
+  document.getElementById('page-content').innerHTML = `
+
+  <!-- HERO -->
+  <div class="profile-hero">
+    <div class="profile-hero-inner">
+      <div class="avatar-wrap">
+        <div class="avatar-large" id="avatar-display"
+          style="background:${selectedColor}"
+          onclick="scrollToColor()" title="Click to change color">
+          ${user.name.charAt(0).toUpperCase()}
+        </div>
+        <div class="avatar-edit-badge" onclick="scrollToColor()">✏️</div>
+      </div>
+      <div class="profile-hero-info">
+        <div class="profile-hero-name" id="hero-name">${escHtml(user.name)}</div>
+        <div class="profile-hero-meta">
+          <span class="profile-hero-role">${icon} ${roleLabel(user.role)}</span>
+          <span class="profile-hero-email">${escHtml(user.email)}</span>
+          ${user.nim ? `<span class="profile-hero-nim">NIM ${escHtml(user.nim)}</span>` : ''}
+        </div>
+        <div class="profile-hero-stats">
+          <div class="hero-stat">
+            <div class="hero-stat-val">${profileStats.total}</div>
+            <div class="hero-stat-label">Submissions</div>
+          </div>
+          <div class="hero-stat-divider"></div>
+          <div class="hero-stat">
+            <div class="hero-stat-val">${profileStats.completed}</div>
+            <div class="hero-stat-label">Completed</div>
+          </div>
+          <div class="hero-stat-divider"></div>
+          <div class="hero-stat">
+            <div class="hero-stat-val">${profileStats.pending}</div>
+            <div class="hero-stat-label">Pending</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TABS -->
+  <div class="profile-tabs">
+    <button class="profile-tab active" onclick="switchTab(this,'tab-info')">👤 Profile Info</button>
+    <button class="profile-tab" onclick="switchTab(this,'tab-security')">🔒 Security</button>
+    <button class="profile-tab" onclick="switchTab(this,'tab-activity')">📋 Activity</button>
+  </div>
+
+  <!-- TAB: PROFILE INFO -->
+  <div id="tab-info">
+    <div class="profile-grid">
+
+      <div class="card">
+        <div class="section-head">
+          <span class="section-title-sm">Personal Information</span>
+          <span class="section-badge-sm">RBAC · ${roleLabel(user.role)}</span>
+        </div>
+
+        <div class="field-row">
+          <div>
+            <label class="field-label">Full Name *</label>
+            <input class="field-input" id="pf-name" value="${escHtml(user.name)}" placeholder="Your full name">
+          </div>
+          <div>
+            <label class="field-label">Email Address</label>
+            <input class="field-input" value="${escHtml(user.email)}" readonly>
+            <div class="field-hint">Email cannot be changed</div>
+          </div>
+        </div>
+
+        <div class="field-row">
+          <div>
+            <label class="field-label">NIM / Student ID</label>
+            <input class="field-input" id="pf-nim"
+              value="${escHtml(user.nim || '')}"
+              ${user.role !== 'student' ? 'readonly' : ''}
+              placeholder="${user.role === 'student' ? 'e.g. 20210001' : '—'}">
+            ${user.role !== 'student' ? '<div class="field-hint">Only applicable for students</div>' : ''}
+          </div>
+          <div>
+            <label class="field-label">Major / Department</label>
+            ${user.role === 'superadmin'
+              ? `<input class="field-input" value="—" readonly>`
+              : `<select class="field-input" id="pf-major">
+                  ${['Informatics','Business','Engineering','Science','Medicine','Law','Arts','Other']
+                    .map(m => `<option value="${m}" ${user.major === m ? 'selected' : ''}>${m}</option>`)
+                    .join('')}
+                </select>`
+            }
+          </div>
+        </div>
+
+        <div class="field-row full" style="margin-bottom:8px">
+          <div>
+            <label class="field-label">Role</label>
+            <div style="display:flex;align-items:center;gap:8px;margin-top:4px">
+              <span class="status status-submitted" style="font-size:11.5px">
+                ${icon} ${roleLabel(user.role)}
+              </span>
+              <span style="font-size:11px;color:var(--text3)">Contact Super Admin to change role</span>
+            </div>
+          </div>
+        </div>
+
+        <div id="color-section" style="margin-top:18px">
+          <label class="field-label">Avatar Color</label>
+          <div class="color-picker-row" id="color-picker">
+            ${AVATAR_COLORS.map(c => `
+              <div class="color-swatch ${c === selectedColor ? 'selected' : ''}"
+                style="background:${c}" title="${c}"
+                onclick="pickColor('${c}',this)">
+              </div>`).join('')}
+          </div>
+        </div>
+
+        <div style="margin-top:24px">
+          <div class="btn-save-wrap">
+            <button class="btn btn-primary" id="btn-save-profile" onclick="saveProfile()">Save Changes</button>
+            <div class="save-status" id="profile-saved">✅ Saved successfully</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Account Overview -->
+      <div class="card">
+        <div class="section-head">
+          <span class="section-title-sm">Account Overview</span>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:0">
+          ${[
+            ['👤 Account ID',   user.id         || '—'],
+            ['📧 Email',        user.email],
+            ['🎓 Role',         roleLabel(user.role)],
+            ['🏛️ Major',        user.major       || '—'],
+            ['🔑 NIM',          user.nim         || '—'],
+            ['📅 Joined',       formatDate(user.created_at || user.createdAt)],
+            ['🕐 Last Updated', formatDate(user.updated_at || user.updatedAt, true)],
+          ].map(([label, val]) => `
+          <div style="display:flex;justify-content:space-between;align-items:center;
+            padding:11px 0;border-bottom:1px solid rgba(204,221,233,0.5)">
+            <span style="font-size:12px;color:var(--text3)">${label}</span>
+            <span style="font-size:13px;color:var(--text);font-weight:500;
+              max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"
+              title="${escHtml(String(val))}">${escHtml(String(val))}</span>
+          </div>`).join('')}
+        </div>
+
+        <div style="margin-top:20px">
+          <div class="field-label" style="margin-bottom:10px">Permissions</div>
+          <div style="display:flex;flex-direction:column;gap:7px">
+            ${getPermissions(user.role).map(p => `
+            <div style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text2)">
+              <span style="color:var(--success)">✓</span> ${p}
+            </div>`).join('')}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB: SECURITY -->
+  <div id="tab-security" style="display:none">
+    <div class="profile-grid">
+      <div class="card">
+        <div class="section-head">
+          <span class="section-title-sm">Change Password</span>
+        </div>
+
+        <div style="margin-bottom:14px">
+          <label class="field-label">Current Password *</label>
+          <div class="pw-wrap">
+            <input class="field-input" type="password" id="pw-current"
+              placeholder="Enter current password" oninput="clearPwErrors()">
+            <button class="pw-toggle" type="button" onclick="togglePw('pw-current',this)">👁</button>
+          </div>
+          <div class="field-error" id="err-current"></div>
+        </div>
+
+        <div style="margin-bottom:14px">
+          <label class="field-label">New Password *</label>
+          <div class="pw-wrap">
+            <input class="field-input" type="password" id="pw-new"
+              placeholder="Min. 8 characters" oninput="updateStrength(this.value)">
+            <button class="pw-toggle" type="button" onclick="togglePw('pw-new',this)">👁</button>
+          </div>
+          <div class="pw-strength pw-s0" id="pw-strength-wrap">
+            <div class="pw-strength-bar"></div>
+            <div class="pw-strength-bar"></div>
+            <div class="pw-strength-bar"></div>
+            <div class="pw-strength-bar"></div>
+            <span class="pw-strength-label" id="pw-strength-label">—</span>
+          </div>
+          <div class="field-error" id="err-new"></div>
+        </div>
+
+        <div style="margin-bottom:20px">
+          <label class="field-label">Confirm New Password *</label>
+          <div class="pw-wrap">
+            <input class="field-input" type="password" id="pw-confirm"
+              placeholder="Re-enter new password"
+              onkeydown="if(event.key==='Enter') changePassword()">
+            <button class="pw-toggle" type="button" onclick="togglePw('pw-confirm',this)">👁</button>
+          </div>
+          <div class="field-error" id="err-confirm"></div>
+        </div>
+
+        <div class="btn-save-wrap">
+          <button class="btn btn-primary" id="btn-save-pw" onclick="changePassword()">Update Password</button>
+          <div class="save-status" id="pw-saved">✅ Password changed</div>
+        </div>
+      </div>
+
+      <div>
+        <div class="card" style="margin-bottom:16px">
+          <div class="section-head"><span class="section-title-sm">Active Session</span></div>
+          <div style="background:var(--surface2);border:1.5px solid var(--border);
+            border-radius:var(--radius-sm);padding:14px;display:flex;gap:12px;align-items:center">
+            <div style="font-size:22px">💻</div>
+            <div>
+              <div style="font-size:13px;font-weight:600;color:var(--text)">Current Session</div>
+              <div style="font-size:11px;color:var(--text3);margin-top:2px">
+                Signed in as ${escHtml(user.email)}
+              </div>
+              <div style="font-size:11px;color:var(--success);margin-top:2px">● Active now</div>
+            </div>
+            <button class="btn btn-danger btn-sm" style="margin-left:auto"
+              onclick="confirmLogout()">Sign Out</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="section-head"><span class="section-title-sm">Password Tips</span></div>
+          <div style="display:flex;flex-direction:column;gap:9px">
+            ${[
+              ['🔑','At least 8 characters long'],
+              ['🔤','Mix uppercase & lowercase letters'],
+              ['🔢','Include numbers'],
+              ['✨','Use special characters (! @ # $)'],
+              ['🚫',"Don't reuse old passwords"],
+            ].map(([i,t]) => `
+            <div style="display:flex;gap:10px;align-items:center;font-size:12px;color:var(--text2)">
+              <span>${i}</span>${t}
+            </div>`).join('')}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB: ACTIVITY -->
+  <div id="tab-activity" style="display:none">
+    <div class="card">
+      <div class="section-head">
+        <span class="section-title-sm">Recent Activity</span>
+        <span class="section-badge-sm" id="activity-badge">0 entries</span>
+      </div>
+      <div id="activity-list-wrap"></div>
+    </div>
+  </div>`;
+
+  // Populate activity after render
+  setTimeout(() => rebuildActivityTab(), 0);
+}
+
+// ── TABS ────────────────────────────────────────────
+function switchTab(btn, tabId) {
+  document.querySelectorAll('.profile-tab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  ['tab-info','tab-security','tab-activity'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = id === tabId ? '' : 'none';
+  });
+}
+
+// ── COLOR PICKER ────────────────────────────────────
+function pickColor(color, el) {
+  selectedColor = color;
+  document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('selected'));
+  el.classList.add('selected');
+  const av = document.getElementById('avatar-display');
+  if (av) av.style.background = color;
+}
+function scrollToColor() {
+  const el = document.getElementById('color-section');
+  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+// ── SAVE PROFILE ────────────────────────────────────
+async function saveProfile() {
+  const name = document.getElementById('pf-name')?.value?.trim();
+  if (!name) { toast('Full name is required', 'error'); return; }
+
+  const payload = { name, color: selectedColor };
+  const nimEl   = document.getElementById('pf-nim');
+  const majorEl = document.getElementById('pf-major');
+  if (nimEl   && !nimEl.readOnly)   payload.nim   = nimEl.value.trim() || null;
+  if (majorEl && !majorEl.disabled) payload.major = majorEl.value;
+
+  const btn = document.getElementById('btn-save-profile');
+  if (btn) { btn.disabled = true; btn.textContent = 'Saving...'; }
+
+  try {
+    const res  = await apiFetch('/auth/profile', {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json();
+    if (!data.success) throw new Error(data.message || 'Update failed');
+
+    const updated = { ...user, ...payload, name };
+    setCurrentUser(updated);
+    await initSidebar('profile.html', updated);
+
+    // Update hero live
+    const heroName = document.getElementById('hero-name');
+    const avatar   = document.getElementById('avatar-display');
+    if (heroName) heroName.textContent    = name;
+    if (avatar)   { avatar.style.background = selectedColor; avatar.textContent = name.charAt(0).toUpperCase(); }
+
+    const saved = document.getElementById('profile-saved');
+    if (saved) { saved.classList.add('show'); setTimeout(() => saved.classList.remove('show'), 3000); }
+    const changes = [];
+    if (payload.name  !== user.name)  changes.push('name');
+    if (payload.color !== user.color) changes.push('avatar color');
+    if (payload.nim   !== user.nim)   changes.push('NIM');
+    if (payload.major !== user.major) changes.push('major');
+    const detail = changes.length ? 'Changed: ' + changes.join(', ') : 'Profile saved';
+    pushLocalActivity('Profile Updated', detail);
+    refreshLastUpdated();
+    rebuildActivityTab();
+    toast('Profile updated ✓', 'success');
+
+  } catch (err) {
+    toast(err.message || 'Save failed', 'error');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'Save Changes'; }
+  }
+}
+
+// ── CHANGE PASSWORD ─────────────────────────────────
+async function changePassword() {
+  clearPwErrors();
+  const current = document.getElementById('pw-current')?.value;
+  const newPw   = document.getElementById('pw-new')?.value;
+  const confirm = document.getElementById('pw-confirm')?.value;
+
+  let valid = true;
+  if (!current)              { setErr('err-current','Current password is required'); valid = false; }
+  if (!newPw||newPw.length<8){ setErr('err-new','New password must be at least 8 characters'); valid = false; }
+  if (newPw !== confirm)     { setErr('err-confirm','Passwords do not match'); valid = false; }
+  if (!valid) return;
+
+  const btn = document.getElementById('btn-save-pw');
+  if (btn) { btn.disabled = true; btn.textContent = 'Updating...'; }
+
+  try {
+    const res  = await apiFetch('/auth/change-password', {
+      method: 'POST',
+      body: JSON.stringify({ currentPassword: current, newPassword: newPw }),
+    });
+    const data = await res.json();
+    if (!data.success) throw new Error(data.message || 'Update failed');
+
+    document.getElementById('pw-current').value = '';
+    document.getElementById('pw-new').value     = '';
+    document.getElementById('pw-confirm').value = '';
+    resetStrength();
+
+    const saved = document.getElementById('pw-saved');
+    if (saved) { saved.classList.add('show'); setTimeout(() => saved.classList.remove('show'), 3000); }
+    pushLocalActivity('Password Changed', 'Security password updated successfully');
+    refreshLastUpdated();
+    rebuildActivityTab();
+    toast('Password changed successfully 🔑', 'success');
+
+  } catch (err) {
+    if (err.message?.toLowerCase().includes('current')) {
+      setErr('err-current', err.message);
+    } else {
+      toast(err.message || 'Password change failed', 'error');
+    }
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'Update Password'; }
+  }
+}
+
+// ── PASSWORD STRENGTH ───────────────────────────────
+function updateStrength(pw) {
+  let score = 0;
+  if (pw.length >= 8)                          score++;
+  if (/[a-z]/.test(pw) && /[A-Z]/.test(pw))   score++;
+  if (/[0-9]/.test(pw))                        score++;
+  if (/[^a-zA-Z0-9]/.test(pw))                score++;
+
+  const labels = ['—','Weak','Fair','Good','Strong'];
+  const wrap   = document.getElementById('pw-strength-wrap');
+  const label  = document.getElementById('pw-strength-label');
+  if (wrap)  wrap.className    = `pw-strength pw-s${score}`;
+  if (label) label.textContent = pw.length ? labels[score] : '—';
+}
+function resetStrength() {
+  const wrap  = document.getElementById('pw-strength-wrap');
+  const label = document.getElementById('pw-strength-label');
+  if (wrap)  wrap.className    = 'pw-strength pw-s0';
+  if (label) label.textContent = '—';
+}
+
+// ── PW TOGGLE ───────────────────────────────────────
+function togglePw(id, btn) {
+  const inp = document.getElementById(id);
+  if (!inp) return;
+  if (inp.type === 'password') { inp.type = 'text';     btn.textContent = '🙈'; }
+  else                         { inp.type = 'password'; btn.textContent = '👁'; }
+}
+
+// ── ERRORS ──────────────────────────────────────────
+function setErr(id, msg) {
+  const el = document.getElementById(id);
+  if (el) el.textContent = msg;
+}
+function clearPwErrors() {
+  ['err-current','err-new','err-confirm'].forEach(id => setErr(id,''));
+}
+
+// ── LOGOUT CONFIRM ──────────────────────────────────
+function confirmLogout() {
+  openModal('Sign Out', `
+    <p style="color:var(--text2)">Are you sure you want to sign out of CompTrack?</p>`,
+  `<button class="btn btn-ghost" onclick="closeModalDirect()">Cancel</button>
+   <button class="btn btn-danger" onclick="logout()">Sign Out</button>`);
+}
+
+// ── ACTIVITY ROW ────────────────────────────────────
+function activityRow(a) {
+  const iconMap = {
+    login:'🔑',   logout:'🚪', submit:'📝',
+    approve:'✅', reject:'❌', achievement:'🏅',
+    export:'📤',  register:'🎉',
+  };
+  const clsMap = {
+    login:'ai-blue', logout:'ai-red', submit:'ai-blue',
+    approve:'ai-green', reject:'ai-red', achievement:'ai-teal',
+    export:'ai-orange', register:'ai-green',
+  };
+  const action = (a.action || '').toLowerCase();
+  const key    = Object.keys(iconMap).find(k => action.includes(k)) || '';
+  const icon   = iconMap[key]  || '📋';
+  const cls    = clsMap[key]   || 'ai-blue';
+  return `
+  <div class="activity-item">
+    <div class="activity-icon ${cls}">${icon}</div>
+    <div class="activity-body">
+      <div class="activity-action">${escHtml(a.action)}</div>
+      ${a.detail ? `<div class="activity-detail">${escHtml(String(a.detail))}</div>` : ''}
+    </div>
+    <div class="activity-time">${relativeTime(a.created_at || a.timestamp)}</div>
+  </div>`;
+}
+
+// ── PERMISSIONS ─────────────────────────────────────
+function getPermissions(role) {
+  const p = {
+    student:    ['Submit & edit competition proposals','View own approval timeline','Download exemption letters','Log achievement reports'],
+    pic:        ['View all submissions in assigned major','Approve or reject with notes','View major analytics','Access all-submissions page'],
+    faculty:    ['Final approval authority','Generate exemption letters','Access analytics & KPIs','Export faculty reports'],
+    superadmin: ['Full system access','Manage all users','View & export all data','System-wide analytics'],
+  };
+  return p[role] || [];
+}
+
+// ── ESCAPE HTML ─────────────────────────────────────
+function escHtml(str) {
+  return String(str)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+</script>
+</body>
+</html>
