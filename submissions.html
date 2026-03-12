@@ -30,9 +30,73 @@ if (user) {
 
 let membersList = [];
 
+// ── FR-04: Polling — auto-refresh every 30 s ─────────────
+const POLL_INTERVAL = 30_000; // ms
+let   _pollTimer    = null;
+let   _lastData     = null;   // serialised snapshot for change detection
+let   _activeFilter = 'all';  // track current filter so poll respects it
+
+function _isModalOpen() {
+  // Don't disrupt the user if they have a modal open
+  const overlay = document.getElementById('modal-overlay') || document.querySelector('.modal-overlay');
+  return overlay && overlay.style.display !== 'none' && overlay.style.display !== '';
+}
+
+function _timestamp() {
+  const d = new Date();
+  const pad = n => String(n).padStart(2, '0');
+  return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+}
+
+function _updateLastSeen() {
+  const el = document.getElementById('poll-last-updated');
+  if (el) el.textContent = `Updated ${_timestamp()}`;
+}
+
+async function _pollRefresh() {
+  if (_isModalOpen()) return; // user is interacting — skip this tick
+
+  try {
+    const params = _activeFilter !== 'all' ? { status: _activeFilter } : {};
+    const fresh = await getCompetitions(params);
+    const serialised = JSON.stringify(fresh.map(c => ({ id: c.id, status: c.status, deadline: c.achievement_deadline })));
+
+    if (serialised !== _lastData) {
+      // Something changed — re-render the table body silently
+      _lastData = serialised;
+      const tbody = document.getElementById('sub-table');
+      if (tbody) {
+        tbody.innerHTML = renderRows(fresh);
+        // Flash subtle highlight so student notices the update
+        tbody.style.transition = 'opacity 0.3s';
+        tbody.style.opacity = '0.4';
+        requestAnimationFrame(() => { tbody.style.opacity = '1'; });
+      }
+    }
+    _updateLastSeen();
+  } catch (_) {
+    // Silent fail — don't bother the user with polling errors
+  }
+}
+
+function startPolling() {
+  stopPolling();
+  _pollTimer = setInterval(_pollRefresh, POLL_INTERVAL);
+}
+
+function stopPolling() {
+  if (_pollTimer) { clearInterval(_pollTimer); _pollTimer = null; }
+}
+
+// Stop polling when tab is hidden, resume when visible — saves server load
+document.addEventListener('visibilitychange', () => {
+  document.hidden ? stopPolling() : startPolling();
+});
+
 async function renderPage() {
   const competitions = await getCompetitions();
   const myComps = competitions;
+  _lastData = JSON.stringify(myComps.map(c => ({ id: c.id, status: c.status, deadline: c.achievement_deadline })));
 
   document.getElementById('page-content').innerHTML = myComps.length ? `
   <div class="filters" id="filter-row">
@@ -41,6 +105,10 @@ async function renderPage() {
     ).join('')}
   </div>
   <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <div></div>
+      <div id="poll-last-updated" style="font-size:11px;color:var(--text3)">Updated ${_timestamp()}</div>
+    </div>
     <div class="table-wrap">
       <table>
         <thead><tr><th>ID</th><th>Competition</th><th>Level</th><th>Funding</th><th>Status</th><th>Report Deadline</th><th>Actions</th></tr></thead>
@@ -53,6 +121,8 @@ async function renderPage() {
     <div class="empty-title">No Submissions Yet</div>
     <div class="empty-sub">Click "+ New Submission" to get started</div>
   </div>`;
+
+  startPolling(); // FR-04: begin 30 s auto-refresh after first render
 }
 
 // BR-03: compute days remaining from today to a YYYY-MM-DD deadline string
@@ -110,8 +180,11 @@ function renderRows(list) {
 async function applyFilter(el, status) {
   document.querySelectorAll('.filter-chip').forEach(e => e.classList.remove('active'));
   el.classList.add('active');
+  _activeFilter = status; // FR-04: keep polling in sync with current filter
   const filtered = await getCompetitions(status !== 'all' ? { status } : {});
+  _lastData = JSON.stringify(filtered.map(c => ({ id: c.id, status: c.status, deadline: c.achievement_deadline })));
   document.getElementById('sub-table').innerHTML = renderRows(filtered);
+  _updateLastSeen();
 }
 
 // Normalise any date value (ISO string, Date object, or YYYY-MM-DD) to the
@@ -258,6 +331,7 @@ async function saveSubmission(action, existingId) {
     await saveCompetition(payload, existingId || null, [...files]);
     closeModalDirect();
     toast(action === 'submit' ? 'Submission submitted! 🎉' : 'Draft saved', 'success');
+    startPolling(); // FR-04: restart poll after modal closes
     renderPage();
   } catch (err) {
     toast(err.message || 'Save failed', 'error');
@@ -328,6 +402,7 @@ async function submitAchievement(id) {
 
     closeModalDirect();
     toast('Achievement reported! Status: Completed 🎉', 'success');
+    startPolling(); // FR-04
     renderPage();
   } catch (err) {
     toast(err.message || 'Failed to report', 'error');
