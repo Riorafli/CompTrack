@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CompTrack — My Submissions</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="layout">
+  <div id="sidebar-wrap"></div>
+  <main class="main">
+    <div class="topbar">
+      <h1 class="page-title">My Submissions</h1>
+      <div class="topbar-actions">
+        <button class="btn btn-primary btn-sm" onclick="openSubmissionForm()">+ New Submission</button>
+      </div>
+    </div>
+    <div class="content" id="page-content"></div>
+  </main>
+</div>
+<div id="modal-placeholder"></div>
+<script src="app.js"></script>
+<script>
+const user = requireAuth(['student']);
+if (user) {
+  initSidebar('submissions.html', user);
+  document.getElementById('modal-placeholder').innerHTML = MODAL_HTML;
+  renderPage();
+}
+
+let membersList = [];
+
+async function renderPage() {
+  const competitions = await getCompetitions();
+  const myComps = competitions;
+
+  document.getElementById('page-content').innerHTML = myComps.length ? `
+  <div class="filters" id="filter-row">
+    ${['all','draft','submitted','pic_approved','faculty_approved','completed'].map((s,i) =>
+      `<button class="filter-chip${i===0?' active':''}" onclick="applyFilter(this,'${s}')">${s==='all'?'All':statusLabel(s)}</button>`
+    ).join('')}
+  </div>
+  <div class="card">
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>ID</th><th>Competition</th><th>Level</th><th>Funding</th><th>Status</th><th>Report Deadline</th><th>Actions</th></tr></thead>
+        <tbody id="sub-table">${renderRows(myComps)}</tbody>
+      </table>
+    </div>
+  </div>` : `
+  <div class="empty-state">
+    <div class="empty-icon">📋</div>
+    <div class="empty-title">No Submissions Yet</div>
+    <div class="empty-sub">Click "+ New Submission" to get started</div>
+  </div>`;
+}
+
+// BR-03: compute days remaining from today to a YYYY-MM-DD deadline string
+function daysUntil(dateStr) {
+  if (!dateStr) return null;
+  const today = new Date(); today.setHours(0,0,0,0);
+  const d = new Date(dateStr + 'T00:00:00'); d.setHours(0,0,0,0);
+  return Math.round((d - today) / 86400000);
+}
+
+// BR-03: render a coloured deadline badge for the "Report Deadline" column
+function deadlineBadge(comp) {
+  // Only show for faculty-approved (or letter generated) competitions without an achievement yet
+  if (!comp.achievement_deadline) return '<span style="color:var(--text3)">—</span>';
+  if (comp.achievement) return '<span style="color:var(--text3)">—</span>'; // already reported
+
+  const days = daysUntil(comp.achievement_deadline);
+  const label = comp.achievement_deadline; // YYYY-MM-DD
+
+  if (days === null) return '<span style="color:var(--text3)">—</span>';
+
+  if (days < 0) {
+    // overdue
+    return `<span style="color:var(--danger);font-weight:600;font-size:12px">⛔ Overdue<br><span style="font-weight:400">${label}</span></span>`;
+  }
+  if (days <= 3) {
+    // urgent — 3 days or fewer
+    return `<span style="color:var(--warn);font-weight:600;font-size:12px">⚠️ ${days}d left<br><span style="font-weight:400">${label}</span></span>`;
+  }
+  // normal
+  return `<span style="color:var(--text2);font-size:12px">📅 ${days}d left<br><span style="color:var(--text3)">${label}</span></span>`;
+}
+
+function renderRows(list) {
+  return list.map(c => `
+  <tr>
+    <td style="font-size:11px;color:var(--text3)">${c.id}</td>
+    <td><div class="td-main">${c.name}</div><div style="font-size:11px;color:var(--text3)">${c.organizer}</div></td>
+    <td><span class="level-badge level-${c.level}">${c.level}</span></td>
+    <td>IDR ${formatFunding(c.funding)}</td>
+    <td><span class="status status-${c.status}">${statusLabel(c.status)}</span></td>
+    <td>${deadlineBadge(c)}</td>
+    <td style="white-space:nowrap">
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+      <button class="btn btn-ghost btn-sm" onclick="viewDetail('${c.id}',${JSON.stringify(user).replace(/"/g,'&quot;')})">Detail</button>
+      ${c.status==='draft'?`<button class="btn btn-primary btn-sm" onclick="submitComp('${c.id}')">Submit</button>`:''}
+      ${c.status==='draft'||c.status==='pic_rejected'?`<button class="btn btn-ghost btn-sm" onclick="openSubmissionForm('${c.id}')">Edit</button>`:''}
+      ${c.letterGenerated?`<button class="btn btn-accent btn-sm" onclick="downloadLetter('${c.id}')">📄 Letter</button>`:''}
+      ${(c.status==='faculty_approved'||c.status==='letter_generated')&&!c.achievement?`<button class="btn btn-success btn-sm" onclick="openAchievementForm('${c.id}',${JSON.stringify(c).replace(/"/g,'&quot;')})">Report</button>`:''}
+      </div>
+    </td>
+  </tr>`).join('');
+}
+
+async function applyFilter(el, status) {
+  document.querySelectorAll('.filter-chip').forEach(e => e.classList.remove('active'));
+  el.classList.add('active');
+  const filtered = await getCompetitions(status !== 'all' ? { status } : {});
+  document.getElementById('sub-table').innerHTML = renderRows(filtered);
+}
+
+// Normalise any date value (ISO string, Date object, or YYYY-MM-DD) to the
+// "yyyy-MM-dd" string that <input type="date"> and the API both require.
+function toDateInput(val) {
+  if (!val) return '';
+  if (typeof val === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(val)) return val;
+  const d = val instanceof Date ? val : new Date(val);
+  if (isNaN(d.getTime())) return '';
+  const pad = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+}
+
+async function submitComp(id) {
+  try {
+    // Fetch the full competition first so we can send all required fields
+    const existing = await getCompetition(id);
+    if (!existing) { toast('Competition not found', 'error'); return; }
+    const payload = {
+      name:         existing.name,
+      organizer:    existing.organizer   || '',
+      level:        existing.level,
+      category:     existing.category   || 'Technology',
+      dateStart:    toDateInput(existing.date_start || existing.dateStart),
+      dateEnd:      toDateInput(existing.date_end   || existing.dateEnd),
+      members:      existing.members    || [],
+      leader:       existing.leader_nim || existing.leader || '',
+      funding:      existing.funding    || 0,
+      proposalLink: existing.proposal_link || existing.proposalLink || '',
+      exemption:    !!existing.exemption,
+      major:        existing.major      || user.major || 'Informatics',
+      action:       'submit',
+    };
+    await saveCompetition(payload, id);
+    toast(`${id} submitted for PIC review 🎉`, 'success');
+    renderPage();
+  } catch (err) {
+    toast(err.message || 'Submit failed', 'error');
+  }
+}
+
+// ── FIX: async so we can await getCompetition(editId) ──────
+async function openSubmissionForm(editId) {
+  // Reset member list before opening
+  membersList = [];
+
+  // If editing, fetch the existing competition fresh from the API
+  let e = null;
+  if (editId) {
+    e = await getCompetition(editId);
+    if (e) {
+      // members may come back as an array of NIMs or objects — normalise to NIM strings
+      membersList = (e.members || []).map(m => (typeof m === 'object' ? m.nim || m.user_nim : m)).filter(Boolean);
+    }
+  }
+
+  openModal(e ? 'Edit Submission' : 'New Competition Submission', `
+  <div class="form-grid">
+    <div class="form-group full"><label>Competition Name *</label><input id="f-name" value="${e?.name||''}"></div>
+    <div class="form-group"><label>Organizer *</label><input id="f-org" value="${e?.organizer||''}"></div>
+    <div class="form-group"><label>Level *</label>
+      <select id="f-level">${['regional','national','international'].map(l=>`<option value="${l}" ${e?.level===l?'selected':''}>${l[0].toUpperCase()+l.slice(1)}</option>`).join('')}</select>
+    </div>
+    <div class="form-group"><label>Category</label>
+      <select id="f-cat">${['Technology','Business','Research','Arts','Science','Other'].map(c=>`<option ${e?.category===c?'selected':''}>${c}</option>`).join('')}</select>
+    </div>
+    <div class="form-group"><label>Start Date *</label><input type="date" id="f-start" value="${toDateInput(e?.date_start||e?.dateStart)}"></div>
+    <div class="form-group"><label>End Date *</label><input type="date" id="f-end" value="${toDateInput(e?.date_end||e?.dateEnd)}"></div>
+    <div class="form-group full">
+      <label>Team Members (NIM) *</label>
+      <div style="display:flex;gap:8px">
+        <input id="f-nim" placeholder="Enter NIM..." style="flex:1" type="text" inputmode="numeric" pattern="[0-9]*" oninput="this.value=this.value.replace(/[^0-9]/g,'')">
+        <button class="btn btn-ghost" onclick="addMember()">Add</button>
+      </div>
+      <div class="member-tags" id="member-tags">${renderMemberTags()}</div>
+    </div>
+    <div class="form-group"><label>Team Leader NIM *</label><input id="f-leader" value="${e?.leader_nim||e?.leader||user.nim||''}" type="text" inputmode="numeric" pattern="[0-9]*" oninput="this.value=this.value.replace(/[^0-9]/g,'')"></div>
+    <div class="form-group"><label>Estimated Funding (IDR)</label><input type="text" id="f-funding" placeholder="e.g. 1.000.000" value="${e?.funding ? Number(e.funding).toLocaleString('id-ID') : ''}" oninput="formatFundingInput(this)"></div>
+    <div class="form-group full"><label>Proposal Link</label><input id="f-link" placeholder="https://drive.google.com/..." value="${e?.proposal_link||e?.proposalLink||''}"></div>
+    <div class="form-group full"><label>Exemption Request</label>
+      <select id="f-disp">
+        <option value="1" ${e?.exemption?'selected':''}>Yes – Request Exemption Letter</option>
+        <option value="0" ${!e?.exemption?'selected':''}>No</option>
+      </select>
+    </div>
+    <div class="form-group full"><label>Supporting Documents</label>
+      <div class="file-drop-zone" id="drop-f-docs" onclick="document.getElementById('f-docs').click()"
+        ondragover="event.preventDefault();this.classList.add('drag-over')"
+        ondragleave="this.classList.remove('drag-over')"
+        ondrop="handleFileDrop(event,'f-docs')">
+        <input type="file" id="f-docs" multiple accept=".pdf,.jpg,.jpeg,.png" style="display:none"
+          onchange="handleFileSelect(this,'drop-f-docs')">
+        <div class="file-drop-icon">📎</div>
+        <div class="file-drop-text">Click or drag files here</div>
+        <div class="file-drop-sub">PDF, JPG, PNG accepted · Multiple files allowed</div>
+      </div>
+      <div class="file-preview" id="preview-f-docs" style="display:none"></div>
+    </div>
+  </div>`,
+  `<button class="btn btn-ghost" onclick="closeModalDirect()">Cancel</button>
+   <button class="btn btn-ghost" onclick="saveSubmission('draft','${editId||''}')">Save as Draft</button>
+   <button class="btn btn-primary" onclick="saveSubmission('submit','${editId||''}')">Submit</button>`);
+}
+
+function renderMemberTags() {
+  return membersList.map(nim =>
+    `<div class="member-tag">${memberName(nim)||nim} <span class="member-tag-remove" onclick="removeMember('${nim}')">×</span></div>`
+  ).join('');
+}
+
+function addMember() {
+  const nim = document.getElementById('f-nim').value.trim();
+  if (!nim) return;
+  if (!membersList.includes(nim)) { membersList.push(nim); }
+  document.getElementById('f-nim').value = '';
+  document.getElementById('member-tags').innerHTML = renderMemberTags();
+}
+
+function removeMember(nim) {
+  membersList = membersList.filter(m => m !== nim);
+  document.getElementById('member-tags').innerHTML = renderMemberTags();
+}
+
+async function saveSubmission(action, existingId) {
+  const name = document.getElementById('f-name')?.value?.trim();
+  if (!name) { toast('Competition name is required', 'error'); return; }
+  const files = document.getElementById('f-docs')?.files || [];
+  const payload = {
+    name,
+    organizer: document.getElementById('f-org').value,
+    level: document.getElementById('f-level').value,
+    category: document.getElementById('f-cat').value,
+    dateStart: document.getElementById('f-start').value,
+    dateEnd: document.getElementById('f-end').value,
+    members: membersList,
+    leader: document.getElementById('f-leader').value,
+    funding: Number(String(document.getElementById('f-funding').value).replace(/[.,]/g, '')) || 0,
+    proposalLink: document.getElementById('f-link').value,
+    exemption: document.getElementById('f-disp').value === '1',
+    major: user.major || 'Informatics',
+    action,
+  };
+  try {
+    await saveCompetition(payload, existingId || null, [...files]);
+    closeModalDirect();
+    toast(action === 'submit' ? 'Submission submitted! 🎉' : 'Draft saved', 'success');
+    renderPage();
+  } catch (err) {
+    toast(err.message || 'Save failed', 'error');
+  }
+}
+
+// BR-03: pass the full competition object so we can show deadline in the form header
+function openAchievementForm(id, comp) {
+  // Build a deadline notice string if applicable
+  let deadlineNotice = '';
+  if (comp && comp.achievement_deadline) {
+    const days = daysUntil(comp.achievement_deadline);
+    if (days !== null && days < 0) {
+      deadlineNotice = `<div style="background:rgba(255,92,106,.12);border:1px solid var(--danger);border-radius:8px;padding:12px 16px;margin-bottom:16px;color:var(--danger);font-size:13px">
+        ⛔ <strong>Deadline passed</strong> — was ${comp.achievement_deadline}. Submission may be rejected by the server.
+      </div>`;
+    } else if (days !== null && days <= 3) {
+      deadlineNotice = `<div style="background:rgba(255,181,71,.12);border:1px solid var(--warn);border-radius:8px;padding:12px 16px;margin-bottom:16px;color:var(--warn);font-size:13px">
+        ⚠️ <strong>Deadline in ${days} day${days===1?'':'s'}</strong> — report by ${comp.achievement_deadline}
+      </div>`;
+    } else if (days !== null) {
+      deadlineNotice = `<div style="background:rgba(79,138,255,.08);border:1px solid rgba(79,138,255,.3);border-radius:8px;padding:12px 16px;margin-bottom:16px;color:var(--text2);font-size:13px">
+        📅 Report deadline: <strong>${comp.achievement_deadline}</strong> (${days} days remaining)
+      </div>`;
+    }
+  }
+
+  openModal('Report Achievement', `
+  ${deadlineNotice}
+  <div class="form-grid">
+    <div class="form-group full"><label>Final Result *</label>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        ${['Winner','Runner-up','Finalist','Participant'].map(r => `
+        <button type="button" onclick="
+          document.querySelectorAll('.result-btn').forEach(b=>b.classList.remove('active'));
+          this.classList.add('active');
+          document.getElementById('ach-result').value=this.dataset.value;
+        " data-value="${r}" class="result-btn btn btn-ghost btn-sm" style="flex:1;min-width:100px">${r === 'Winner' ? '🥇' : r === 'Runner-up' ? '🥈' : r === 'Finalist' ? '🎖️' : '🏅'} ${r}</button>`).join('')}
+      </div>
+      <input type="hidden" id="ach-result" value="Winner">
+    </div>
+    ${buildFileUploadField('ach-cert', 'Certificate Upload')}
+    ${buildFileUploadField('ach-docs', 'Documentation Upload')}
+    <div class="form-group full"><label>Notes</label><textarea id="ach-notes" placeholder="Additional information..."></textarea></div>
+  </div>`,
+  `<button class="btn btn-ghost" onclick="closeModalDirect()">Cancel</button>
+   <button class="btn btn-success" onclick="submitAchievement('${id}')">Submit Report</button>`);
+}
+
+async function submitAchievement(id) {
+  const btn = document.querySelector('.btn-success');
+  if (btn) { btn.textContent = 'Submitting...'; btn.disabled = true; }
+  try {
+    const result = document.getElementById('ach-result')?.value || 'Participant';
+    const certInput = document.getElementById('ach-cert');
+    const docsInput = document.getElementById('ach-docs');
+    const notes = document.getElementById('ach-notes')?.value?.trim() || '';
+
+    const formData = new FormData();
+    formData.append('result', result);
+    if (notes) formData.append('notes', notes);
+    if (certInput?.files?.length) formData.append('certificate', certInput.files[0]);
+    if (docsInput?.files?.length) formData.append('documentation', docsInput.files[0]);
+
+    const res = await apiFetch(`/competitions/${id}/achievement`, { method: 'POST', body: formData });
+    const data = await res.json();
+    if (!data.success) throw new Error(data.message);
+
+    closeModalDirect();
+    toast('Achievement reported! Status: Completed 🎉', 'success');
+    renderPage();
+  } catch (err) {
+    toast(err.message || 'Failed to report', 'error');
+    if (btn) { btn.textContent = 'Submit Report'; btn.disabled = false; }
+  }
+}
+
+function formatFundingInput(el) {
+  const pos = el.selectionStart;
+  const prevLen = el.value.length;
+  const raw = el.value.replace(/\./g, '').replace(/[^0-9]/g, '');
+  el.value = raw ? Number(raw).toLocaleString('id-ID') : '';
+  const newPos = Math.max(0, pos + (el.value.length - prevLen));
+  el.setSelectionRange(newPos, newPos);
+}
+</script>
+</body>
+</html>
