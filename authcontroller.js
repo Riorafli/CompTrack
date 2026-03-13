@@ -44,6 +44,11 @@ async function register(req, res, next) {
   try {
     const { name, email, password, nim, major, role = 'student' } = req.body;
 
+    // PIC accounts must have a major — without one, getAll() would expose all submissions
+    if (role === 'pic' && !major) {
+      return res.status(400).json({ success: false, message: 'A major is required when registering a PIC account.' });
+    }
+
     // Check email exists
     const [existing] = await pool.query('SELECT id FROM users WHERE email = ?', [email]);
     if (existing.length) {
