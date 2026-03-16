@@ -58,11 +58,11 @@ if (user) {
   const overdueCount = deadlineComps.filter(c => c._days < 0).length;
   const urgentCount  = deadlineComps.filter(c => c._days >= 0 && c._days <= 3).length;
 
-  // --- Bar chart: submissions per month (last 7 months) ---
+  // --- Bar chart: submissions per month (last 12 months) ---
   const monthLabels = [];
   const barData = [];
   const now = new Date();
-  for (let i = 6; i >= 0; i--) {
+  for (let i = 11; i >= 0; i--) {
     const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
     monthLabels.push(d.toLocaleString('default', { month: 'short' }));
     const count = myComps.filter(c => {
@@ -167,12 +167,13 @@ if (user) {
   <div class="chart-grid">
     <div class="mini-chart">
       <div class="mini-chart-title">📈 Submissions per Month</div>
-      <div class="bar-chart">
+      <div class="bar-chart" id="bar-chart-monthly">
         ${barData.map((v,i) => `
-          <div class="bar-wrap">
-            <div class="bar" style="height:${(v/maxBar)*100}%" title="${v} submissions"></div>
+          <div class="bar-wrap" data-count="${v}" data-month="${months[i]}">
+            <div class="bar" style="height:${Math.max((v/maxBar)*100,v>0?4:0)}%"></div>
             <div class="bar-label">${months[i]}</div>
           </div>`).join('')}
+        <div class="bar-tooltip" id="bar-tooltip"></div>
       </div>
     </div>
     <div class="mini-chart">
@@ -219,6 +220,31 @@ if (user) {
   </div>`;
   })();
 }
+
+// ── Bar chart hover tooltip ──────────────────────────────────────────────────
+document.addEventListener('mouseover', e => {
+  const wrap = e.target.closest('.bar-wrap');
+  const chart = document.getElementById('bar-chart-monthly');
+  const tip   = document.getElementById('bar-tooltip');
+  if (!wrap || !chart || !tip) return;
+
+  const count = wrap.dataset.count;
+  const month = wrap.dataset.month;
+  tip.textContent = `${month}: ${count} submission${count != 1 ? 's' : ''}`;
+  tip.classList.add('visible');
+
+  // Position: centre above the hovered bar-wrap
+  const chartRect = chart.getBoundingClientRect();
+  const wrapRect  = wrap.getBoundingClientRect();
+  const left = wrapRect.left - chartRect.left + wrapRect.width / 2;
+  tip.style.left = `${left}px`;
+});
+
+document.addEventListener('mouseout', e => {
+  if (!e.target.closest('.bar-wrap')) return;
+  const tip = document.getElementById('bar-tooltip');
+  if (tip) tip.classList.remove('visible');
+});
 </script>
 </body>
 </html>
