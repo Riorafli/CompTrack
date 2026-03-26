@@ -49,7 +49,6 @@ app.use('/api/auth/register', authLimiter);
 app.use('/api/',              generalLimiter);
 
 // ── Routes ────────────────────────────────────────────────
-// Auth (public + protected mixed inside controller)
 const authCtrl = require('./controllers/authController');
 const { authenticate: auth, authorize } = require('./middleware/auth');
 const { body } = require('express-validator');
@@ -67,7 +66,7 @@ authR.post('/change-password', auth, authCtrl.changePassword);
 app.use('/api/auth', authR);
 
 // COMPETITIONS
-const compCtrl = require('./controllers/competitionController');
+const compCtrl = require('./controllers/Competitioncontroller'); // ✅ Bug-01 fixed
 const multer = require('multer');
 const { v4: uuidv4 } = require('uuid');
 const pathLib = require('path');
@@ -83,7 +82,7 @@ const storage = multer.diskStorage({
       .trim()
       .replace(/\s+/g, '_');
     const ext = pathLib.extname(file.originalname).toLowerCase();
-    const suffix = Math.random().toString(36).slice(2, 6); // short unique suffix
+    const suffix = Math.random().toString(36).slice(2, 6);
     cb(null, `${userName} - ${date}_${suffix}${ext}`);
   },
 });
@@ -121,8 +120,9 @@ app.use('/api/users', userR);
 const { notif } = require('./controllers/otherControllers');
 const notifR = express.Router();
 notifR.use(auth);
-notifR.get('/',           notif.getNotifications);
-notifR.patch('/:id/read', notif.markRead);
+notifR.get('/',              notif.getNotifications);
+notifR.patch('/all/read',    notif.markRead);   // ✅ fix: must be before /:id/read
+notifR.patch('/:id/read',    notif.markRead);
 app.use('/api/notifications', notifR);
 
 // ANALYTICS
@@ -174,6 +174,8 @@ async function start() {
     console.log('  POST   /api/competitions/:id/approve');
     console.log('  POST   /api/competitions/:id/reject');
     console.log('  GET    /api/notifications');
+    console.log('  PATCH  /api/notifications/all/read');
+    console.log('  PATCH  /api/notifications/:id/read');
     console.log('  GET    /api/analytics');
     console.log('  GET    /api/export/:type');
     console.log('  GET    /api/users  (superadmin)\n');
