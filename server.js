@@ -108,7 +108,7 @@ compR.delete('/:id',          compCtrl.remove);
 app.use('/api/competitions', compR);
 
 // USERS
-const { getAll: getUsers, updateRole, toggleActive } = require('./controllers/otherControllers');
+const { getAll: getUsers, updateRole, toggleActive } = require('./controllers/Othercontrollers'); // ✅ Bug-02 fixed
 const userR = express.Router();
 userR.use(auth, authorize('superadmin'));
 userR.get('/',             getUsers);
@@ -117,7 +117,7 @@ userR.patch('/:id/toggle', toggleActive);
 app.use('/api/users', userR);
 
 // NOTIFICATIONS
-const { notif } = require('./controllers/otherControllers');
+const { notif } = require('./controllers/Othercontrollers'); // ✅ Bug-02 fixed
 const notifR = express.Router();
 notifR.use(auth);
 notifR.get('/',              notif.getNotifications);
@@ -126,21 +126,21 @@ notifR.patch('/:id/read',    notif.markRead);
 app.use('/api/notifications', notifR);
 
 // ANALYTICS
-const { analytics } = require('./controllers/otherControllers');
+const { analytics } = require('./controllers/Othercontrollers'); // ✅ Bug-02 fixed
 const analyticsR = express.Router();
 analyticsR.use(auth, authorize('faculty', 'superadmin'));
 analyticsR.get('/', analytics.getAnalytics);
 app.use('/api/analytics', analyticsR);
 
 // EXPORT
-const { export: exp } = require('./controllers/otherControllers');
+const { export: exp } = require('./controllers/Othercontrollers'); // ✅ Bug-02 fixed
 const exportR = express.Router();
 exportR.use(auth, authorize('faculty', 'superadmin'));
 exportR.get('/:type', exp.exportData);
 app.use('/api/export', exportR);
 
 // ACTIVITY LOG
-const { activity } = require('./controllers/otherControllers');
+const { activity } = require('./controllers/Othercontrollers'); // ✅ Bug-02 fixed
 const activityR = express.Router();
 activityR.use(auth, authorize('superadmin'));
 activityR.get('/', activity.getActivityLog);
