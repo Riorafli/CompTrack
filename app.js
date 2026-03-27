@@ -196,7 +196,11 @@ async function getCompetitions(params = {}) {
   const query = new URLSearchParams(params).toString();
   const res = await apiFetch(`/competitions${query ? '?' + query : ''}`);
   const data = await res.json();
-  if (!data.success) { console.error('getCompetitions error:', data.message); return []; }
+  if (!data.success) {
+    console.error('getCompetitions error:', data.message);
+    toast('Failed to load submissions: ' + (data.message || 'Unknown error'), 'error');
+    return [];
+  }
   _competitionsCache = data.data;
   return data.data;
 }
