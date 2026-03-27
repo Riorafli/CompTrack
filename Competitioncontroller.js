@@ -87,15 +87,6 @@ async function getAll(req, res, next) {
     const { status, level, major, search, page = 1, limit = 50 } = req.query;
     const user = req.user;
 
-    // PIC must have a major assigned — a null major is a misconfigured account,
-    // not a pass to see everything.
-    if (user.role === 'pic' && !user.major) {
-      return res.status(403).json({
-        success: false,
-        message: 'Your PIC account has no major assigned. Contact a superadmin to fix this.',
-      });
-    }
-
     let query = 'SELECT c.* FROM competitions c WHERE 1=1';
     const params = [];
 
@@ -105,15 +96,16 @@ async function getAll(req, res, next) {
       params.push(user.id);
     }
 
-    // PIC is scoped to their own major — cannot be overridden by query param
-    if (user.role === 'pic') {
-      query += ' AND c.major = ?';
+    // PIC: scope to their major if they have one.
+    // LOWER() makes it case-insensitive. OR IS NULL catches submissions
+    // where student had no major set. If PIC has no major, they see all.
+    if (user.role === 'pic' && user.major) {
+      query += " AND (LOWER(c.major) = LOWER(?) OR c.major IS NULL)";
       params.push(user.major);
     }
 
     if (status)  { query += ' AND c.status = ?';             params.push(status); }
     if (level)   { query += ' AND c.level = ?';              params.push(level); }
-    // Only non-PIC roles can filter by major (PIC's major is already enforced above)
     if (major && user.role !== 'pic') { query += ' AND c.major = ?'; params.push(major); }
     if (search)  { query += ' AND (c.name LIKE ? OR c.id LIKE ?)'; params.push(`%${search}%`, `%${search}%`); }
 
@@ -173,7 +165,7 @@ async function create(req, res, next) {
        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
       [id, name, organizer, level, category, dateStart || null, dateEnd || null,
        leader || null, proposalLink || null, funding || 0, exemption ? 1 : 0,
-       status, submittedAt, major || user.major, user.id]
+       status, submittedAt, user.major || null, user.id]
     );
 
     // Members
