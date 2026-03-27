@@ -270,6 +270,10 @@ async function openSubmissionForm(editId) {
         <option value="0" ${!e?.exemption?'selected':''}>No</option>
       </select>
     </div>
+    <div class="form-group full"><label>Department / Major</label>
+      <input id="f-major" value="${e?.major||user.major||''}" readonly style="background:var(--surface2);cursor:not-allowed;opacity:.7" placeholder="Set your major in Profile first">
+      ${!user.major ? `<div style="font-size:11px;color:var(--warn);margin-top:4px">⚠️ You have no major set on your profile. <a href="profile.html" style="color:var(--accent)">Set it now</a> so the right PIC receives your submission.</div>` : ''}
+    </div>
     <div class="form-group full"><label>Supporting Documents</label>
       <div class="file-drop-zone" id="drop-f-docs" onclick="document.getElementById('f-docs').click()"
         ondragover="event.preventDefault();this.classList.add('drag-over')"
@@ -324,7 +328,7 @@ async function saveSubmission(action, existingId) {
     funding: Number(String(document.getElementById('f-funding').value).replace(/[.,]/g, '')) || 0,
     proposalLink: document.getElementById('f-link').value,
     exemption: document.getElementById('f-disp').value === '1',
-    major: user.major || 'Informatics',
+    major: document.getElementById('f-major').value,
     action,
   };
   try {
