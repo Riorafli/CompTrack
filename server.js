@@ -49,7 +49,7 @@ app.use('/api/auth/register', authLimiter);
 app.use('/api/',              generalLimiter);
 
 // ── Routes ────────────────────────────────────────────────
-const authCtrl = require('./controllers/authController');
+const authCtrl = require('./controllers/authcontroller');
 const { authenticate: auth, authorize } = require('./middleware/auth');
 const { body } = require('express-validator');
 
