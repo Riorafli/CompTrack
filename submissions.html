@@ -30,6 +30,16 @@ if (user) {
 
 let membersList = [];
 
+const MAJORS_LIST = {
+  'BINUS @Kemanggisan': ['Computer Science','CS - Statistics','CS - Mathematics','Game Application & Technology','Cyber Security','Artificial Intelligence','Data Science'],
+  'BINUS @Alam Sutera':  ['Computer Science','CS - Global Class','Cyber Security','Artificial Intelligence'],
+  'BINUS @Bekasi':       ['CS - Software Engineering'],
+  'BINUS @Bandung':      ['Computer Science - Bandung'],
+  'BINUS @Malang':       ['Computer Science - Malang'],
+  'BINUS @Semarang':     ['Computer Science - Semarang'],
+  'BINUS @Medan':        ['Computer Science - Medan'],
+};
+
 // ── FR-04: Polling — auto-refresh every 30 s ─────────────
 const POLL_INTERVAL = 30_000; // ms
 let   _pollTimer    = null;
@@ -231,85 +241,198 @@ async function openSubmissionForm(editId) {
   // Reset member list before opening
   membersList = [];
 
+  // Fetch fresh user data from API to ensure major is up-to-date
+  let freshMajor = user.major || '';
+  try {
+    const meRes = await apiFetch('/auth/me');
+    const meData = await meRes.json();
+    if (meData.success && meData.user) {
+      freshMajor = meData.user.major || '';
+      // Sync localStorage so subsequent uses are correct
+      const updated = { ...getCurrentUser(), ...meData.user };
+      localStorage.setItem('ct_user', JSON.stringify(updated));
+      user.major = freshMajor;
+    }
+  } catch { /* use cached major on failure */ }
+
   // If editing, fetch the existing competition fresh from the API
   let e = null;
   if (editId) {
     e = await getCompetition(editId);
     if (e) {
-      // members may come back as an array of NIMs or objects — normalise to NIM strings
-      membersList = (e.members || []).map(m => (typeof m === 'object' ? m.nim || m.user_nim : m)).filter(Boolean);
+      const leaderNim = e.leader_nim || e.leader || '';
+      // Prefer members_detail (has name/phone/email/major), fall back to plain NIM array
+      const detail = e.members_detail && e.members_detail.length > 0 ? e.members_detail : [];
+      membersList = (e.members || []).map(m => {
+        const nim = typeof m === 'object' ? (m.nim || m.user_nim || '') : m;
+        const d = detail.find(d => d.nim === nim) || {};
+        return { nim, name: d.name || m.name || '', phone: d.phone || m.phone || '', email: d.email || m.email || '', major: d.major || m.major || '' };
+      }).filter(m => m.nim && m.nim !== leaderNim); // exclude leader from member cards — leader has its own section
     }
   }
 
+  const displayMajor = e?.major || freshMajor;
+
+  // Derive campus from the student's major to append region to leader's major display
+  let leaderCampus = '';
+  Object.entries(MAJORS_LIST).forEach(([campus, majors]) => {
+    if (majors.includes(displayMajor)) leaderCampus = campus.replace('BINUS @', '').replace('BINUS ', '');
+  });
+  const displayLeaderMajor = displayMajor && leaderCampus ? `${displayMajor} - ${leaderCampus}` : displayMajor;
+
   openModal(e ? 'Edit Submission' : 'New Competition Submission', `
+  <style>
+    .form-section {
+      grid-column: 1 / -1;
+      border: 1px solid var(--border, #e2e8f0);
+      border-radius: 10px;
+      padding: 16px 18px 8px;
+      margin-bottom: 4px;
+      position: relative;
+    }
+    .form-section-title {
+      position: absolute;
+      top: -11px;
+      left: 14px;
+      background: var(--surface, #fff);
+      padding: 0 8px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: .08em;
+      color: var(--accent, #4f8aff);
+      text-transform: uppercase;
+    }
+    .member-card {
+      border: 1px solid var(--border, #e2e8f0);
+      border-radius: 8px;
+      padding: 12px 14px;
+      margin-top: 10px;
+      position: relative;
+      background: var(--surface2, #f8fafc);
+    }
+    .member-card-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .member-card-remove {
+      position: absolute; top: 8px; right: 10px;
+      cursor: pointer; color: var(--text3, #94a3b8); font-size: 16px; line-height:1;
+    }
+    .member-card-remove:hover { color: var(--danger, #ef4444); }
+    .member-card label { font-size: 11px; font-weight:600; letter-spacing:.05em; text-transform:uppercase; color:var(--text2,#64748b); display:block; margin-bottom:4px; }
+    .member-card input, .member-card select { width:100%; padding:7px 10px; border:1px solid var(--border,#e2e8f0); border-radius:6px; font-size:13px; background:var(--surface,#fff); color:var(--text1,#1e293b); box-sizing:border-box; }
+    .member-card input:focus, .member-card select:focus { outline:none; border-color:var(--accent,#4f8aff); box-shadow:0 0 0 3px rgba(79,138,255,.12); }
+    .add-member-btn { margin-top:10px; width:100%; }
+  </style>
   <div class="form-grid">
-    <div class="form-group full"><label>Competition Name *</label><input id="f-name" value="${e?.name||''}"></div>
-    <div class="form-group"><label>Organizer *</label><input id="f-org" value="${e?.organizer||''}"></div>
-    <div class="form-group"><label>Level *</label>
-      <select id="f-level">${['regional','national','international'].map(l=>`<option value="${l}" ${e?.level===l?'selected':''}>${l[0].toUpperCase()+l.slice(1)}</option>`).join('')}</select>
-    </div>
-    <div class="form-group"><label>Category</label>
-      <select id="f-cat">${['Technology','Business','Research','Arts','Science','Other'].map(c=>`<option ${e?.category===c?'selected':''}>${c}</option>`).join('')}</select>
-    </div>
-    <div class="form-group"><label>Start Date *</label><input type="date" id="f-start" value="${toDateInput(e?.date_start||e?.dateStart)}"></div>
-    <div class="form-group"><label>End Date *</label><input type="date" id="f-end" value="${toDateInput(e?.date_end||e?.dateEnd)}"></div>
-    <div class="form-group full">
-      <label>Team Members (NIM) *</label>
-      <div style="display:flex;gap:8px">
-        <input id="f-nim" placeholder="Enter NIM..." style="flex:1" type="text" inputmode="numeric" pattern="[0-9]*" oninput="this.value=this.value.replace(/[^0-9]/g,'')">
-        <button class="btn btn-ghost" onclick="addMember()">Add</button>
+
+    <!-- ── COMPETITION INFO ─────────────────────────── -->
+    <div class="form-section">
+      <span class="form-section-title">Competition Info</span>
+      <div class="form-grid" style="margin-top:4px">
+        <div class="form-group full"><label>Competition Name *</label><input id="f-name" value="${e?.name||''}"></div>
+        <div class="form-group"><label>Organizer *</label><input id="f-org" value="${e?.organizer||''}"></div>
+        <div class="form-group"><label>Level *</label>
+          <select id="f-level">${['regional','national','international'].map(l=>`<option value="${l}" ${e?.level===l?'selected':''}>${l[0].toUpperCase()+l.slice(1)}</option>`).join('')}</select>
+        </div>
+        <div class="form-group full"><label>Category</label>
+          <select id="f-cat">${['Technology','Business','Research','Arts','Science','Other'].map(c=>`<option ${e?.category===c?'selected':''}>${c}</option>`).join('')}</select>
+        </div>
+        <div class="form-group"><label>Start Date *</label><input type="date" id="f-start" value="${toDateInput(e?.date_start||e?.dateStart)}"></div>
+        <div class="form-group"><label>End Date *</label><input type="date" id="f-end" value="${toDateInput(e?.date_end||e?.dateEnd)}"></div>
+        <div class="form-group full"><label>Proposal Link</label><input id="f-link" placeholder="https://drive.google.com/..." value="${e?.proposal_link||e?.proposalLink||''}"></div>
+        <div class="form-group full"><label>Exemption Request</label>
+          <select id="f-disp">
+            <option value="1" ${e?.exemption?'selected':''}>Yes – Request Exemption Letter</option>
+            <option value="0" ${!e?.exemption?'selected':''}>No</option>
+          </select>
+        </div>
+        <div class="form-group full"><label>Department / Major</label>
+          <input id="f-major" value="${displayMajor}" readonly style="background:var(--surface2);cursor:not-allowed;opacity:.7" placeholder="Set your major in Profile first">
+          ${!freshMajor ? `<div style="font-size:11px;color:var(--warn);margin-top:4px">⚠️ You have no major set on your profile. <a href="profile.html" style="color:var(--accent)">Set it now</a></div>` : ''}
+        </div>
+        <div class="form-group full"><label>Estimated Funding (IDR)</label><input type="text" id="f-funding" placeholder="e.g. 1.000.000" value="${e?.funding ? Number(e.funding).toLocaleString('id-ID') : ''}" oninput="formatFundingInput(this)"></div>
       </div>
-      <div class="member-tags" id="member-tags">${renderMemberTags()}</div>
     </div>
-    <div class="form-group"><label>Team Leader NIM *</label><input id="f-leader" value="${e?.leader_nim||e?.leader||user.nim||''}" type="text" inputmode="numeric" pattern="[0-9]*" oninput="this.value=this.value.replace(/[^0-9]/g,'')"></div>
-    <div class="form-group"><label>Estimated Funding (IDR)</label><input type="text" id="f-funding" placeholder="e.g. 1.000.000" value="${e?.funding ? Number(e.funding).toLocaleString('id-ID') : ''}" oninput="formatFundingInput(this)"></div>
-    <div class="form-group full"><label>Proposal Link</label><input id="f-link" placeholder="https://drive.google.com/..." value="${e?.proposal_link||e?.proposalLink||''}"></div>
-    <div class="form-group full"><label>Exemption Request</label>
-      <select id="f-disp">
-        <option value="1" ${e?.exemption?'selected':''}>Yes – Request Exemption Letter</option>
-        <option value="0" ${!e?.exemption?'selected':''}>No</option>
-      </select>
-    </div>
-    <div class="form-group full"><label>Department / Major</label>
-      <input id="f-major" value="${e?.major||user.major||''}" readonly style="background:var(--surface2);cursor:not-allowed;opacity:.7" placeholder="Set your major in Profile first">
-      ${!user.major ? `<div style="font-size:11px;color:var(--warn);margin-top:4px">⚠️ You have no major set on your profile. <a href="profile.html" style="color:var(--accent)">Set it now</a> so the right PIC receives your submission.</div>` : ''}
-    </div>
-    <div class="form-group full"><label>Supporting Documents</label>
-      <div class="file-drop-zone" id="drop-f-docs" onclick="document.getElementById('f-docs').click()"
-        ondragover="event.preventDefault();this.classList.add('drag-over')"
-        ondragleave="this.classList.remove('drag-over')"
-        ondrop="handleFileDrop(event,'f-docs')">
-        <input type="file" id="f-docs" multiple accept=".pdf,.jpg,.jpeg,.png" style="display:none"
-          onchange="handleFileSelect(this,'drop-f-docs')">
-        <div class="file-drop-icon">📎</div>
-        <div class="file-drop-text">Click or drag files here</div>
-        <div class="file-drop-sub">PDF, JPG, PNG accepted · Multiple files allowed</div>
+
+    <!-- ── TEAM LEADER ──────────────────────────────── -->
+    <div class="form-section">
+      <span class="form-section-title">Team Leader</span>
+      <div class="form-grid" style="margin-top:4px">
+        <div class="form-group"><label>Full Name *</label><input id="f-leader-name" placeholder="Full name..." value="${e?.leader_name||''}"></div>
+        <div class="form-group"><label>NIM *</label><input id="f-leader" value="${e?.leader_nim||e?.leader||user.nim||''}" type="text" inputmode="numeric" pattern="[0-9]*" oninput="this.value=this.value.replace(/[^0-9]/g,'')"></div>
+        <div class="form-group"><label>Phone Number</label><input id="f-leader-phone" placeholder="e.g. 08123456789" type="tel" value="${e?.leader_phone||''}"></div>
+        <div class="form-group"><label>Email</label><input id="f-leader-email" placeholder="e.g. name@email.com" type="email" value="${e?.leader_email||''}"></div>
+        <div class="form-group full"><label>Major</label>
+          <input id="f-leader-major" value="${displayLeaderMajor}" readonly
+            style="background:var(--surface2);cursor:not-allowed;opacity:.7">
+          <div style="font-size:11px;color:var(--text3);margin-top:4px">🔒 Automatically set from your profile major and cannot be changed.</div>
+        </div>
       </div>
-      <div class="file-preview" id="preview-f-docs" style="display:none"></div>
     </div>
+
+    <!-- ── TEAM MEMBERS ─────────────────────────────── -->
+    <div class="form-section">
+      <span class="form-section-title">Team Members</span>
+      <div id="member-cards">${renderMemberCards()}</div>
+      <button class="btn btn-ghost add-member-btn" type="button" onclick="addMemberCard()">+ Add Member</button>
+    </div>
+
+    <!-- ── SUPPORTING DOCUMENTS ────────────────────── -->
+    <div class="form-section">
+      <span class="form-section-title">Supporting Documents</span>
+      <div style="margin-top:8px">
+        <div class="file-drop-zone" id="drop-f-docs" onclick="document.getElementById('f-docs').click()"
+          ondragover="event.preventDefault();this.classList.add('drag-over')"
+          ondragleave="this.classList.remove('drag-over')"
+          ondrop="handleFileDrop(event,'f-docs')">
+          <input type="file" id="f-docs" multiple accept=".pdf,.jpg,.jpeg,.png" style="display:none"
+            onchange="handleFileSelect(this,'drop-f-docs')">
+          <div class="file-drop-icon">📎</div>
+          <div class="file-drop-text">Click or drag files here</div>
+          <div class="file-drop-sub">PDF, JPG, PNG accepted · Multiple files allowed</div>
+        </div>
+        <div class="file-preview" id="preview-f-docs" style="display:none"></div>
+      </div>
+    </div>
+
   </div>`,
   `<button class="btn btn-ghost" onclick="closeModalDirect()">Cancel</button>
    <button class="btn btn-ghost" onclick="saveSubmission('draft','${editId||''}')">Save as Draft</button>
    <button class="btn btn-primary" onclick="saveSubmission('submit','${editId||''}')">Submit</button>`);
 }
 
-function renderMemberTags() {
-  return membersList.map(nim =>
-    `<div class="member-tag">${memberName(nim)||nim} <span class="member-tag-remove" onclick="removeMember('${nim}')">×</span></div>`
-  ).join('');
+function renderMemberCards() {
+  if (membersList.length === 0) return '<p style="color:var(--text3);font-size:13px;margin:10px 0 4px">No members added yet.</p>';
+  return membersList.map((m, i) => `
+    <div class="member-card" id="mc-${i}">
+      <span class="member-card-remove" onclick="removeMemberCard(${i})">×</span>
+      <div class="member-card-grid">
+        <div><label>Full Name</label><input placeholder="Full name..." value="${m.name||''}" oninput="updateMember(${i},'name',this.value)"></div>
+        <div><label>NIM</label><input placeholder="NIM..." value="${m.nim||''}" type="text" inputmode="numeric" pattern="[0-9]*" oninput="this.value=this.value.replace(/[^0-9]/g,'');updateMember(${i},'nim',this.value)"></div>
+        <div><label>Phone Number</label><input placeholder="e.g. 08123456789" type="tel" value="${m.phone||''}" oninput="updateMember(${i},'phone',this.value)"></div>
+        <div><label>Email</label><input placeholder="e.g. name@email.com" type="email" value="${m.email||''}" oninput="updateMember(${i},'email',this.value)"></div>
+        <div style="grid-column:1/-1"><label>Major</label>
+          <select onchange="updateMember(${i},'major',this.value)">
+            <option value="">— Select Major —</option>
+            ${Object.entries(MAJORS_LIST).map(([campus, majors]) =>
+              `<optgroup label="${campus}">${majors.map(mj => `<option value="${mj}" ${m.major===mj?'selected':''}>${mj}</option>`).join('')}</optgroup>`
+            ).join('')}
+          </select>
+        </div>
+      </div>
+    </div>`).join('');
 }
 
-function addMember() {
-  const nim = document.getElementById('f-nim').value.trim();
-  if (!nim) return;
-  if (!membersList.includes(nim)) { membersList.push(nim); }
-  document.getElementById('f-nim').value = '';
-  document.getElementById('member-tags').innerHTML = renderMemberTags();
+function addMemberCard() {
+  membersList.push({ nim: '', name: '', phone: '', email: '', major: '' });
+  document.getElementById('member-cards').innerHTML = renderMemberCards();
 }
 
-function removeMember(nim) {
-  membersList = membersList.filter(m => m !== nim);
-  document.getElementById('member-tags').innerHTML = renderMemberTags();
+function removeMemberCard(i) {
+  membersList.splice(i, 1);
+  document.getElementById('member-cards').innerHTML = renderMemberCards();
+}
+
+function updateMember(i, field, val) {
+  if (membersList[i]) membersList[i][field] = val;
 }
 
 async function saveSubmission(action, existingId) {
@@ -323,8 +446,13 @@ async function saveSubmission(action, existingId) {
     category: document.getElementById('f-cat').value,
     dateStart: document.getElementById('f-start').value,
     dateEnd: document.getElementById('f-end').value,
-    members: membersList,
+    members: membersList.map(m => m.nim).filter(Boolean),
+    membersDetail: membersList,
     leader: document.getElementById('f-leader').value,
+    leaderName: document.getElementById('f-leader-name')?.value?.trim() || '',
+    leaderPhone: document.getElementById('f-leader-phone')?.value?.trim() || '',
+    leaderEmail: document.getElementById('f-leader-email')?.value?.trim() || '',
+    leaderMajor: document.getElementById('f-leader-major')?.value || '',
     funding: Number(String(document.getElementById('f-funding').value).replace(/[.,]/g, '')) || 0,
     proposalLink: document.getElementById('f-link').value,
     exemption: document.getElementById('f-disp').value === '1',
