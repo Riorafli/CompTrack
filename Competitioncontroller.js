@@ -13,7 +13,10 @@ function localNow(dateOnly = false) {
 // ── Helper: build full competition object ────────────────
 async function buildCompetition(comp) {
   const [members] = await pool.query(
-    'SELECT user_nim, is_leader FROM competition_members WHERE competition_id = ?',
+    `SELECT cm.user_nim, cm.member_name, cm.is_leader, u.name as user_name
+     FROM competition_members cm
+     LEFT JOIN users u ON u.nim = cm.user_nim
+     WHERE cm.competition_id = ?`,
     [comp.id]
   );
   const [history] = await pool.query(
@@ -28,6 +31,12 @@ async function buildCompetition(comp) {
     'SELECT id, file_name, file_path, file_type, file_size, doc_type, created_at FROM documents WHERE competition_id = ?',
     [comp.id]
   );
+  // Fetch submitter name
+  const [submitterRows] = await pool.query(
+    'SELECT name, nim FROM users WHERE id = ?',
+    [comp.submitted_by]
+  );
+  const submitter = submitterRows[0] || null;
 
   const toLocal = (d) => {
     if (!d) return null;
@@ -42,13 +51,17 @@ async function buildCompetition(comp) {
   return {
     ...comp,
     submitted_at: toLocal(comp.submitted_at),
-    achievement_deadline: comp.achievement_deadline   // DATE string, already 'YYYY-MM-DD' from MySQL
+    achievement_deadline: comp.achievement_deadline
       ? (comp.achievement_deadline instanceof Date
           ? comp.achievement_deadline.toISOString().slice(0, 10)
           : String(comp.achievement_deadline).slice(0, 10))
       : null,
+    submitter_name: submitter?.name || null,
+    submitter_nim:  submitter?.nim  || null,
     members: members.map(m => m.user_nim),
+    members_detail: members.map(m => ({ nim: m.user_nim, name: m.user_name || m.member_name || m.user_nim, is_leader: !!m.is_leader })),
     leader: members.find(m => m.is_leader)?.user_nim || null,
+    leader_name: members.find(m => m.is_leader)?.user_name || members.find(m => m.is_leader)?.member_name || comp.leader_name || null,
     history: history.map(h => {
       return { status: h.status, date: toLocal(h.date), actor: h.actor_name, note: h.note };
     }),
@@ -96,11 +109,10 @@ async function getAll(req, res, next) {
       params.push(user.id);
     }
 
-    // PIC: scope to their major if they have one.
-    // LOWER() makes it case-insensitive. OR IS NULL catches submissions
-    // where student had no major set. If PIC has no major, they see all.
+    // PIC: scope to their major only.
+    // LOWER() makes it case-insensitive. If PIC has no major, they see all.
     if (user.role === 'pic' && user.major) {
-      query += " AND (LOWER(c.major) = LOWER(?) OR c.major IS NULL)";
+      query += " AND LOWER(c.major) = LOWER(?)";
       params.push(user.major);
     }
 
@@ -133,6 +145,12 @@ async function getOne(req, res, next) {
     if (req.user.role === 'student' && rows[0].submitted_by !== req.user.id) {
       return res.status(403).json({ success: false, message: 'Access denied' });
     }
+    // PICs can only view competitions that match their major (or if PIC has no major, they see all)
+    if (req.user.role === 'pic' && req.user.major && rows[0].major) {
+      if (rows[0].major.toLowerCase() !== req.user.major.toLowerCase()) {
+        return res.status(403).json({ success: false, message: 'Access denied' });
+      }
+    }
     res.json({ success: true, data: comp });
   } catch (err) {
     next(err);
@@ -144,7 +162,7 @@ async function create(req, res, next) {
   try {
     const user = req.user;
     const { name, organizer, level, category, dateStart, dateEnd, leader,
-            proposalLink, funding, exemption, major, action = 'draft' } = req.body;
+            leaderName, proposalLink, funding, exemption, major, action = 'draft' } = req.body;
     // FormData sends repeated keys — express gives string (1 item) or array (many); normalise to array
     const members = req.body.members
       ? (Array.isArray(req.body.members) ? req.body.members : [req.body.members])
@@ -159,19 +177,48 @@ async function create(req, res, next) {
     const status = action === 'submit' ? 'submitted' : 'draft';
     const submittedAt = action === 'submit' ? localNow() : null;
 
+    // Use major from form body first, fall back to the user's profile major from DB
+    let resolvedMajor = (major && major.trim()) ? major.trim() : (user.major || null);
+    // Extra safety: if still null, query the DB directly for this user's major
+    if (!resolvedMajor) {
+      const [userRows] = await pool.query('SELECT major FROM users WHERE id = ?', [user.id]);
+      resolvedMajor = userRows[0]?.major || null;
+    }
+
     await pool.query(
       `INSERT INTO competitions (id, name, organizer, level, category, date_start, date_end,
-       leader_nim, proposal_link, funding, exemption, status, submitted_at, major, submitted_by)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+       leader_nim, leader_name, proposal_link, funding, exemption, status, submitted_at, major, submitted_by)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
       [id, name, organizer, level, category, dateStart || null, dateEnd || null,
-       leader || null, proposalLink || null, funding || 0, exemption ? 1 : 0,
-       status, submittedAt, user.major || null, user.id]
+       leader || null, leaderName || null, proposalLink || null, funding || 0, exemption ? 1 : 0,
+       status, submittedAt, resolvedMajor, user.id]
     );
 
-    // Members
-    if (members.length) {
-      const memberRows = members.map(nim => [id, nim, nim === leader ? 1 : 0]);
-      await pool.query('INSERT INTO competition_members (competition_id, user_nim, is_leader) VALUES ?', [memberRows]);
+    // Members — parse membersDetail JSON to get manually-entered names
+    const membersDetailRaw = req.body.membersDetail;
+    let membersDetailParsed = [];
+    try { membersDetailParsed = membersDetailRaw ? JSON.parse(membersDetailRaw) : []; } catch(e) {}
+
+    // Build full member set: start with leader (always is_leader=1), then add other members
+    const allNims = new Set();
+    const memberRows = [];
+
+    // Always insert leader first
+    if (leader) {
+      allNims.add(leader);
+      memberRows.push([id, leader, leaderName || null, 1]);
+    }
+
+    // Insert other members (skip if already added as leader)
+    members.filter(nim => nim && !allNims.has(nim)).forEach(nim => {
+      allNims.add(nim);
+      const detail = membersDetailParsed.find(d => d.nim === nim);
+      const mName = detail?.name && detail.name.trim() && detail.name.trim() !== nim ? detail.name.trim() : null;
+      memberRows.push([id, nim, mName, 0]);
+    });
+
+    if (memberRows.length) {
+      await pool.query('INSERT INTO competition_members (competition_id, user_nim, member_name, is_leader) VALUES ?', [memberRows]);
     }
 
     // History
@@ -180,9 +227,23 @@ async function create(req, res, next) {
         'INSERT INTO competition_history (competition_id, status, actor_name, actor_id) VALUES (?,?,?,?)',
         [id, 'submitted', user.name, user.id]
       );
-      // Notify PIC users
-      const picIds = await getUsersByRole(['pic', 'superadmin']);
-      await pushNotification(picIds, `New submission: "${name}" awaiting PIC review`, '📋', 'approvals.html');
+      // Notify only PICs whose major matches the submission (or PICs with no major = see all),
+      // plus superadmins who always see everything
+      let picRecipients;
+      if (resolvedMajor) {
+        const [matchedPics] = await pool.query(
+          `SELECT id FROM users WHERE role = 'pic' AND is_active = 1
+           AND (LOWER(major) = LOWER(?) OR major IS NULL OR major = '')`,
+          [resolvedMajor]
+        );
+        const [superadmins] = await pool.query(
+          `SELECT id FROM users WHERE role = 'superadmin' AND is_active = 1`
+        );
+        picRecipients = [...matchedPics, ...superadmins].map(r => r.id);
+      } else {
+        picRecipients = await getUsersByRole(['pic', 'superadmin']);
+      }
+      await pushNotification(picRecipients, `New submission: "${name}" awaiting PIC review`, '📋', 'approvals.html');
       await logActivity(user.id, user, 'Submission Created', `New submission: "${name}" (${id})`);
     } else {
       await logActivity(user.id, user, 'Draft Saved', `Draft saved: "${name}" (${id})`);
@@ -213,28 +274,55 @@ async function update(req, res, next) {
     }
 
     const { name, organizer, level, category, dateStart, dateEnd, leader,
-            proposalLink, funding, exemption, action = 'draft' } = req.body;
+            leaderName, proposalLink, funding, exemption, major, action = 'draft' } = req.body;
     // FormData sends repeated keys — normalise to array
     const members = req.body.members
       ? (Array.isArray(req.body.members) ? req.body.members : [req.body.members])
       : [];
+
+    // Use major from form body first, fall back to existing value then user profile from DB
+    let resolvedMajor = (major && major.trim()) ? major.trim() : (comp.major || user.major || null);
+    // Extra safety: if still null, query the DB directly for this user's major
+    if (!resolvedMajor) {
+      const [userRows] = await pool.query('SELECT major FROM users WHERE id = ?', [user.id]);
+      resolvedMajor = userRows[0]?.major || null;
+    }
 
     const status = action === 'submit' ? 'submitted' : 'draft';
     const submittedAt = action === 'submit' ? localNow() : comp.submitted_at;
 
     await pool.query(
       `UPDATE competitions SET name=?, organizer=?, level=?, category=?, date_start=?, date_end=?,
-       leader_nim=?, proposal_link=?, funding=?, exemption=?, status=?, submitted_at=? WHERE id=?`,
+       leader_nim=?, leader_name=?, proposal_link=?, funding=?, exemption=?, status=?, submitted_at=?, major=? WHERE id=?`,
       [name, organizer, level, category, dateStart || null, dateEnd || null,
-       leader || null, proposalLink || null, funding || 0, exemption ? 1 : 0,
-       status, submittedAt, id]
+       leader || null, leaderName || null, proposalLink || null, funding || 0, exemption ? 1 : 0,
+       status, submittedAt, resolvedMajor, id]
     );
 
-    // Update members
+    // Update members — parse membersDetail JSON to get manually-entered names
+    const membersDetailRaw = req.body.membersDetail;
+    let membersDetailParsed = [];
+    try { membersDetailParsed = membersDetailRaw ? JSON.parse(membersDetailRaw) : []; } catch(e) {}
+
+    // Build full member set: start with leader (always is_leader=1), then add other members
+    const allNims = new Set();
+    const memberRows = [];
+
+    if (leader) {
+      allNims.add(leader);
+      memberRows.push([id, leader, leaderName || null, 1]);
+    }
+
+    members.filter(nim => nim && !allNims.has(nim)).forEach(nim => {
+      allNims.add(nim);
+      const detail = membersDetailParsed.find(d => d.nim === nim);
+      const mName = detail?.name && detail.name.trim() && detail.name.trim() !== nim ? detail.name.trim() : null;
+      memberRows.push([id, nim, mName, 0]);
+    });
+
     await pool.query('DELETE FROM competition_members WHERE competition_id = ?', [id]);
-    if (members.length) {
-      const memberRows = members.map(nim => [id, nim, nim === leader ? 1 : 0]);
-      await pool.query('INSERT INTO competition_members (competition_id, user_nim, is_leader) VALUES ?', [memberRows]);
+    if (memberRows.length) {
+      await pool.query('INSERT INTO competition_members (competition_id, user_nim, member_name, is_leader) VALUES ?', [memberRows]);
     }
 
     if (action === 'submit') {
@@ -242,8 +330,22 @@ async function update(req, res, next) {
         'INSERT INTO competition_history (competition_id, status, actor_name, actor_id) VALUES (?,?,?,?)',
         [id, 'submitted', user.name, user.id]
       );
-      const picIds = await getUsersByRole(['pic', 'superadmin']);
-      await pushNotification(picIds, `Resubmitted: "${name}" awaiting PIC review`, '📋', 'approvals.html');
+      // Notify only PICs whose major matches, plus superadmins
+      let picRecipients;
+      if (resolvedMajor) {
+        const [matchedPics] = await pool.query(
+          `SELECT id FROM users WHERE role = 'pic' AND is_active = 1
+           AND (LOWER(major) = LOWER(?) OR major IS NULL OR major = '')`,
+          [resolvedMajor]
+        );
+        const [superadmins] = await pool.query(
+          `SELECT id FROM users WHERE role = 'superadmin' AND is_active = 1`
+        );
+        picRecipients = [...matchedPics, ...superadmins].map(r => r.id);
+      } else {
+        picRecipients = await getUsersByRole(['pic', 'superadmin']);
+      }
+      await pushNotification(picRecipients, `Resubmitted: "${name}" awaiting PIC review`, '📋', 'approvals.html');
     }
 
     await logActivity(user.id, user, 'Submission Updated', `Updated: "${name}" (${id})`);
