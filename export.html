@@ -37,9 +37,9 @@ if (user) {
       ].map(e => `
       <div class="stat-card blue" style="cursor:default">
         <div style="font-size:32px;margin-bottom:10px">${e.icon}</div>
-        <div style="font-weight:600;font-size:15px;margin-bottom:4px">${e.title}</div>
-        <div style="font-size:12px;color:var(--text2);margin-bottom:6px">${e.desc}</div>
-        <div style="font-size:11px;color:var(--text3);margin-bottom:14px">${e.count}</div>
+        <div style="font-weight:700;font-size:16px;margin-bottom:6px;color:#ffffff">${e.title}</div>
+        <div style="font-size:13px;color:#ffffff;font-weight:500;margin-bottom:6px">${e.desc}</div>
+        <div style="font-size:12px;color:#ffffff;font-weight:600;margin-bottom:14px">${e.count}</div>
         <div style="display:flex;gap:8px">
           <button class="btn btn-ghost btn-sm" onclick="doExport('${e.title}','csv')">⬇ CSV</button>
           <button class="btn btn-primary btn-sm" onclick="doExport('${e.title}','excel')">⬇ Excel</button>
