@@ -239,11 +239,20 @@ async function getMe(req, res) {
 // ── PATCH /api/auth/profile ───────────────────────────────
 async function updateProfile(req, res, next) {
   try {
-    const { name, nim, major } = req.body;
-    await pool.query(
-      'UPDATE users SET name = ?, nim = ?, major = ? WHERE id = ?',
-      [name, nim || null, major || null, req.user.id]
-    );
+    const { name, nim, major, color } = req.body;
+    const fields = [];
+    const values = [];
+
+    if (name !== undefined)  { fields.push('name = ?');  values.push(name); }
+    if (nim   !== undefined)  { fields.push('nim = ?');   values.push(nim || null); }
+    if (major !== undefined)  { fields.push('major = ?'); values.push(major || null); }
+    if (color !== undefined)  { fields.push('color = ?'); values.push(color); }
+
+    if (!fields.length) return res.status(400).json({ success: false, message: 'Nothing to update' });
+
+    values.push(req.user.id);
+    await pool.query(`UPDATE users SET ${fields.join(', ')} WHERE id = ?`, values);
+
     const [rows] = await pool.query(
       'SELECT id, name, email, nim, major, role, color, avatar_url FROM users WHERE id = ?',
       [req.user.id]
