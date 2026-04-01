@@ -156,38 +156,6 @@ body {
   margin-bottom: 28px;
 }
 
-/* ── SSO BUTTONS ── */
-.sso-buttons { display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px; }
-
-.sso-btn {
-  display: flex; align-items: center; justify-content: center; gap: 10px;
-  width: 100%; padding: 11px 16px;
-  border-radius: var(--radius-sm);
-  border: 1.5px solid #ccdde9;
-  background: #ffffff;
-  color: #1a2b38;
-  font-family: var(--font-sans);
-  font-size: 13.5px; font-weight: 500;
-  cursor: pointer; transition: all 0.2s;
-  text-decoration: none;
-  box-shadow: 0 1px 4px rgba(46,134,171,0.08);
-}
-.sso-btn:hover {
-  border-color: #2e86ab;
-  background: #f4f9fc;
-  transform: translateY(-1px);
-}
-.sso-btn svg { flex-shrink: 0; }
-
-
-/* ── DIVIDER ── */
-.auth-divider {
-  display: flex; align-items: center; gap: 12px;
-  margin: 20px 0; color: #7a96a8; font-size: 12px;
-}
-.auth-divider::before, .auth-divider::after {
-  content: ''; flex: 1; height: 1px; background: #ccdde9;
-}
 
 /* ── FORM ── */
 .auth-form .form-group { margin-bottom: 14px; }
@@ -273,24 +241,6 @@ body {
   box-shadow: 0 1px 3px rgba(46,134,171,0.06);
 }
 .demo-chip:hover { border-color: #2e86ab; color: #2e86ab; background: #f0f7fb; }
-
-/* ── SSO LOADING OVERLAY ── */
-.sso-overlay {
-  display: none; position: fixed; inset: 0;
-  background: rgba(27,58,82,0.4); backdrop-filter: blur(6px);
-  z-index: 999; align-items: center; justify-content: center;
-  flex-direction: column; gap: 16px;
-}
-.sso-overlay.show { display: flex; }
-.sso-spinner {
-  width: 44px; height: 44px;
-  border: 3px solid rgba(255,255,255,0.3);
-  border-top-color: #7ecfde;
-  border-radius: 50%;
-  animation: spin 0.7s linear infinite;
-}
-@keyframes spin { to { transform: rotate(360deg); } }
-.sso-overlay-text { color: #fff; font-size: 14px; }
 
 /* ── STEP INDICATOR (signup) ── */
 .steps {
@@ -378,12 +328,6 @@ body {
   </div>
 </div>
 
-<!-- SSO Loading Overlay -->
-<div class="sso-overlay" id="sso-overlay">
-  <div class="sso-spinner"></div>
-  <div class="sso-overlay-text" id="sso-overlay-text">Connecting to provider...</div>
-</div>
-
 <div class="toast-container" id="toast-container"></div>
 <script src="app.js"></script>
 <script>
@@ -392,7 +336,6 @@ body {
 // ── VIEW STATE ──────────────────────────────────────────
 let currentView = 'login'; // 'login' | 'signup' | 'signup2'
 let signupStep1Data = null;
-let selectedRole = 'student';
 
 function render() {
   if (currentView === 'login')   renderLogin();
@@ -405,20 +348,6 @@ function renderLogin() {
   document.getElementById('auth-card').innerHTML = `
   <div class="auth-card-title">Welcome back</div>
   <p class="auth-card-sub">Sign in to your CompTrack account</p>
-
-  <div class="sso-buttons">
-    <button class="sso-btn" onclick="ssoLogin('Google')">
-      <svg width="18" height="18" viewBox="0 0 24 24">
-        <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-        <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-        <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-        <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-      </svg>
-      Continue with Google
-    </button>
-  </div>
-
-  <div class="auth-divider">or sign in with email</div>
 
   <div class="auth-form">
     <div class="form-group">
@@ -464,20 +393,6 @@ function renderSignup1() {
   <div class="auth-card-title">Create account</div>
   <p class="auth-card-sub">Join CompTrack with your institutional email</p>
 
-  <div class="sso-buttons">
-    <button class="sso-btn" onclick="ssoSignup('Google')">
-      <svg width="18" height="18" viewBox="0 0 24 24">
-        <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-        <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-        <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-        <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-      </svg>
-      Sign up with Google
-    </button>
-  </div>
-
-  <div class="auth-divider">or create with email</div>
-
   <div class="auth-form">
     <div class="form-group">
       <label>Full Name *</label>
@@ -516,7 +431,27 @@ function renderSignup1() {
 
 // ── SIGNUP STEP 2 ────────────────────────────────────────
 function renderSignup2() {
-  const majors = ['Informatics','Business','Engineering','Science','Medicine','Law','Arts','Other'];
+
+  const majors = [
+    'Computer Science',
+    'CS - Statistics',
+    'CS - Mathematics',
+    'CS - Global Class',
+    'CS - Software Engineering',
+    'Game Application & Technology',
+    'Cyber Security',
+    'Artificial Intelligence',
+    'Data Science',
+  ];
+  const campuses = [
+    'BINUS @Kemanggisan',
+    'BINUS @Alam Sutera',
+    'BINUS @Bekasi',
+    'BINUS @Bandung',
+    'BINUS @Malang',
+    'BINUS @Semarang',
+    'BINUS @Medan',
+  ];
   document.getElementById('auth-card').innerHTML = `
   <div class="steps">
     <div class="step done"><div class="step-num">✓</div> Account</div>
@@ -529,38 +464,30 @@ function renderSignup2() {
 
   <div class="auth-form">
     <div class="form-group">
-      <label>I am a *</label>
-      <div class="role-select-grid" id="role-grid">
-        ${[
-          {role:'student',   icon:'🎓', label:'Student'},
-          {role:'pic',       icon:'👤', label:'PIC Major'},
-          {role:'faculty',   icon:'🏛', label:'Faculty Admin'},
-          {role:'superadmin',icon:'⚡', label:'Super Admin'},
-        ].map(r => `
-        <div class="role-option${selectedRole===r.role?' selected':''}"
-          onclick="selectRole('${r.role}')">
-          <div class="role-option-icon">${r.icon}</div>
-          <div class="role-option-label">${r.label}</div>
-        </div>`).join('')}
-      </div>
+      <label>NIM / Student ID *</label>
+      <input type="text" id="s-nim" placeholder="e.g. 20210001" value="${signupStep1Data?.nim||''}"
+        oninput="this.classList.remove('error');document.getElementById('err-nim').textContent=''">
+      <div class="field-error" id="err-nim"></div>
     </div>
 
-    <div class="input-row">
-      <div class="form-group" id="nim-wrap" style="${selectedRole!=='student'?'display:none':''}">
-        <label>NIM / Student ID *</label>
-        <input type="text" id="s-nim" placeholder="e.g. 20210001" value="${signupStep1Data?.nim||''}"
-          oninput="this.classList.remove('error');document.getElementById('err-nim').textContent=''">
-        <div class="field-error" id="err-nim"></div>
-      </div>
-      <div class="form-group" id="major-wrap" style="${selectedRole==='superadmin'?'display:none':''}">
-        <label>Major / Department *</label>
-        <select id="s-major" style="width:100%;padding:10px 12px;background:var(--surface2);border:1.5px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-family:var(--font-sans);font-size:13.5px;outline:none"
-          onchange="this.style.borderColor='var(--border)';document.getElementById('err-major').textContent=''">
-          <option value="" disabled ${!signupStep1Data?.major?'selected':''}>Select your major...</option>
-          ${majors.map(m => `<option value="${m}" ${m===signupStep1Data?.major?'selected':''}>${m}</option>`).join('')}
-        </select>
-        <div class="field-error" id="err-major"></div>
-      </div>
+    <div class="form-group">
+      <label>Major / Department *</label>
+      <select id="s-major" style="width:100%;padding:10px 12px;background:var(--surface2);border:1.5px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-family:var(--font-sans);font-size:13.5px;outline:none"
+        onchange="this.style.borderColor='var(--border)';document.getElementById('err-major').textContent=''">
+        <option value="" disabled ${!signupStep1Data?.major?'selected':''}>Select your major...</option>
+        ${majors.map(m => `<option value="${m}" ${m===signupStep1Data?.major?'selected':''}>${m}</option>`).join('')}
+      </select>
+      <div class="field-error" id="err-major"></div>
+    </div>
+
+    <div class="form-group">
+      <label>BINUS Campus / Region *</label>
+      <select id="s-region" style="width:100%;padding:10px 12px;background:var(--surface2);border:1.5px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-family:var(--font-sans);font-size:13.5px;outline:none"
+        onchange="this.style.borderColor='var(--border)';document.getElementById('err-region').textContent=''">
+        <option value="" disabled ${!signupStep1Data?.region?'selected':''}>Select your campus...</option>
+        ${campuses.map(c => `<option value="${c}" ${c===signupStep1Data?.region?'selected':''}>${c}</option>`).join('')}
+      </select>
+      <div class="field-error" id="err-region"></div>
     </div>
 
     <button class="btn-auth" onclick="doRegister()">Create Account →</button>
@@ -571,16 +498,6 @@ function renderSignup2() {
 }
 
 // ── ACTIONS ─────────────────────────────────────────────
-function selectRole(role) {
-  selectedRole = role;
-  document.querySelectorAll('.role-option').forEach(el => el.classList.remove('selected'));
-  event.currentTarget.classList.add('selected');
-  const nimWrap   = document.getElementById('nim-wrap');
-  const majorWrap = document.getElementById('major-wrap');
-  if (nimWrap)   nimWrap.style.display   = (role === 'student') ? '' : 'none';
-  if (majorWrap) majorWrap.style.display = (role === 'superadmin') ? 'none' : '';
-}
-
 function togglePassword(inputId, btn) {
   const inp = document.getElementById(inputId);
   if (inp.type === 'password') { inp.type = 'text'; btn.textContent = '🙈'; }
@@ -621,32 +538,34 @@ function goToStep2() {
 }
 
 async function doRegister() {
-  const nim   = document.getElementById('s-nim')?.value?.trim() || '';
-  const major = document.getElementById('s-major')?.value || '';
+  const nim    = document.getElementById('s-nim')?.value?.trim() || '';
+  const major  = document.getElementById('s-major')?.value       || '';
+  const region = document.getElementById('s-region')?.value      || '';
 
-  // Clear previous errors
-  const errNim   = document.getElementById('err-nim');
-  const errMajor = document.getElementById('err-major');
-  if (errNim)   errNim.textContent   = '';
-  if (errMajor) errMajor.textContent = '';
+  const errNim    = document.getElementById('err-nim');
+  const errMajor  = document.getElementById('err-major');
+  const errRegion = document.getElementById('err-region');
+  if (errNim)    errNim.textContent    = '';
+  if (errMajor)  errMajor.textContent  = '';
+  if (errRegion) errRegion.textContent = '';
 
   let valid = true;
 
-  if (selectedRole === 'student') {
-    if (!nim) {
-      if (errNim) errNim.textContent = 'NIM / Student ID is required';
-      const nimInput = document.getElementById('s-nim');
-      if (nimInput) nimInput.classList.add('error');
-      valid = false;
-    }
+  if (!nim) {
+    if (errNim) errNim.textContent = 'NIM / Student ID is required';
+    document.getElementById('s-nim')?.classList.add('error');
+    valid = false;
   }
-
-  const needsMajor = (selectedRole === 'student' || selectedRole === 'pic' || selectedRole === 'faculty');
-
-  if (!major && needsMajor) {
+  if (!major) {
     if (errMajor) errMajor.textContent = 'Please select your major';
     const majorSelect = document.getElementById('s-major');
     if (majorSelect) majorSelect.style.borderColor = 'var(--danger)';
+    valid = false;
+  }
+  if (!region) {
+    if (errRegion) errRegion.textContent = 'Please select your campus';
+    const regionSelect = document.getElementById('s-region');
+    if (regionSelect) regionSelect.style.borderColor = 'var(--danger)';
     valid = false;
   }
 
@@ -656,7 +575,7 @@ async function doRegister() {
   try {
     const result = await registerUser({
       ...signupStep1Data,
-      nim: nim || null, major, role: selectedRole
+      nim, major, region, role: 'student'
     });
     if (!result.ok) {
       hideSSOOverlay();
@@ -702,44 +621,6 @@ async function loginAs(role) {
     hideSSOOverlay();
     toast(err.message || 'Login failed', 'error');
   }
-}
-
-// ── SSO SIMULATION ───────────────────────────────────────
-function ssoLogin(provider) {
-  showSSOOverlay(`Connecting to ${provider}...`);
-  setTimeout(() => {
-    hideSSOOverlay();
-    // Simulate: pre-fill email field and show message
-    currentView = 'login';
-    render();
-    const emailInput = document.getElementById('login-email');
-    if (emailInput) emailInput.value = `user@university.ac.id`;
-    toast(`${provider} SSO: Enter your institutional credentials`, 'info');
-  }, 1400);
-}
-
-function ssoSignup(provider) {
-  showSSOOverlay(`Connecting to ${provider}...`);
-  setTimeout(() => {
-    hideSSOOverlay();
-    // Simulate: pre-fill name/email from SSO provider
-    signupStep1Data = {
-      name: 'New Google User',
-      email: `newuser.${Date.now()}@university.ac.id`,
-      password: 'sso-managed'
-    };
-    currentView = 'signup2';
-    render();
-    toast(`${provider} account connected — complete your profile`, 'success');
-  }, 1500);
-}
-
-function showSSOOverlay(text) {
-  document.getElementById('sso-overlay-text').textContent = text;
-  document.getElementById('sso-overlay').classList.add('show');
-}
-function hideSSOOverlay() {
-  document.getElementById('sso-overlay').classList.remove('show');
 }
 
 // ── INIT ────────────────────────────────────────────────
