@@ -19,6 +19,22 @@ async function runMigrations(conn) {
   const db = process.env.DB_NAME || 'comptrack';
 
   const migrations = [
+    // member_name: store manually-entered member names in competition_members
+    {
+      label: 'competition_members.member_name',
+      check: `SELECT COUNT(*) AS cnt FROM information_schema.COLUMNS
+              WHERE TABLE_SCHEMA = '${db}' AND TABLE_NAME = 'competition_members'
+              AND COLUMN_NAME = 'member_name'`,
+      sql: `ALTER TABLE competition_members ADD COLUMN member_name VARCHAR(100) AFTER user_nim`,
+    },
+    // leader_name: display name for letter when leader is not a registered user
+    {
+      label: 'leader_name',
+      check: `SELECT COUNT(*) AS cnt FROM information_schema.COLUMNS
+              WHERE TABLE_SCHEMA = '${db}' AND TABLE_NAME = 'competitions'
+              AND COLUMN_NAME = 'leader_name'`,
+      sql: `ALTER TABLE competitions ADD COLUMN leader_name VARCHAR(100) AFTER leader_nim`,
+    },
     // BR-03: achievement deadline
     {
       label: 'achievement_deadline',
