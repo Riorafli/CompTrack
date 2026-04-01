@@ -6,12 +6,21 @@
 
 const API_BASE = 'http://localhost:5000/api';
 
+// ── LETTER CONFIG — edit these to match your institution ────
+const LETTER_CONFIG = {
+  letterCodePrefix: 'UXY/FTI/DISP',          // prefix for letter number, e.g. UXY/FTI/DISP/001/2025
+  recipientName:    'Lecturer Services Center (LSC) Kemanggisan', // full name in "Yth." block
+  recipientShort:   'LSC',                    // short name used in closing paragraph
+  deanName:         'Prof. Sari Lestari, Ph.D.',
+  deanTitle:        'Head of Departement Computer Science Jakarta', // label under signature
+};
+
 // ── DEMO USERS (kept only for memberName() lookup) ──────────
 const USERS = {
-  student:    { name: 'Aliyah Rahmawati',   role: 'student',    nim: '20210001', major: 'Informatics', email: 'aliyah@university.ac.id',  color: '#4f8aff' },
-  student2:   { name: 'Bima Prasetyo',      role: 'student',    nim: '20210045', major: 'Informatics', email: 'bima@university.ac.id',    color: '#7c5cfc' },
-  student3:   { name: 'Citra Dewi',         role: 'student',    nim: '20210089', major: 'Business',    email: 'citra@university.ac.id',   color: '#00d4aa' },
-  pic:        { name: 'Dr. Hendra Wijaya',  role: 'pic',        nim: null,       major: 'Informatics', email: 'hendra@university.ac.id',  color: '#ff8c42' },
+  student:    { name: 'Aliyah Rahmawati',   role: 'student',    nim: '20210001', major: 'Computer Science', email: 'aliyah@university.ac.id',  color: '#4f8aff' },
+  student2:   { name: 'Bima Prasetyo',      role: 'student',    nim: '20210045', major: 'Computer Science', email: 'bima@university.ac.id',    color: '#7c5cfc' },
+  student3:   { name: 'Citra Dewi',         role: 'student',    nim: '20210089', major: 'CS - Software Engineering',    email: 'citra@university.ac.id',   color: '#00d4aa' },
+  pic:        { name: 'Dr. Hendra Wijaya',  role: 'pic',        nim: null,       major: 'Computer Science', email: 'hendra@university.ac.id',  color: '#ff8c42' },
   faculty:    { name: 'Prof. Sari Lestari', role: 'faculty',    nim: null,       major: null,          email: 'sari@university.ac.id',    color: '#ff5c6a' },
   superadmin: { name: 'Admin Sistem',       role: 'superadmin', nim: null,       major: null,          email: 'admin@university.ac.id',   color: '#ffb547' },
 };
@@ -215,9 +224,11 @@ async function getCompetition(id) {
 async function saveCompetition(payload, existingId = null, files = []) {
   const formData = new FormData();
 
-  // Append all JSON fields
+  // Append all JSON fields — membersDetail is an array of objects, send as JSON string
   Object.entries(payload).forEach(([k, v]) => {
-    if (Array.isArray(v)) {
+    if (k === 'membersDetail') {
+      formData.append(k, JSON.stringify(v)); // serialize object array properly
+    } else if (Array.isArray(v)) {
       v.forEach(item => formData.append(k, item));
     } else if (v !== null && v !== undefined) {
       formData.append(k, v);
@@ -289,8 +300,27 @@ async function getUnreadCount() {
   try {
     const res = await apiFetch('/notifications');
     const data = await res.json();
-    return data.success ? data.unreadCount : 0;
-  } catch { return 0; }
+    let count = data.success ? (data.unreadCount || 0) : 0;
+    // Also add unread local superadmin notifications (MCR etc.)
+    const u = getCurrentUser();
+    if (u && u.role === 'superadmin') {
+      try {
+        const local = JSON.parse(localStorage.getItem('ct_sa_notifs')) || [];
+        count += local.filter(n => !n.read).length;
+      } catch {}
+    }
+    return count;
+  } catch {
+    // Fallback: count local notifications only
+    const u = getCurrentUser();
+    if (u && u.role === 'superadmin') {
+      try {
+        const local = JSON.parse(localStorage.getItem('ct_sa_notifs')) || [];
+        return local.filter(n => !n.read).length;
+      } catch {}
+    }
+    return 0;
+  }
 }
 
 async function markNotificationRead(id) {
@@ -474,6 +504,7 @@ async function viewDetail(id, user) {
   document.getElementById('modal-body').innerHTML = `
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px">
     ${[
+      ['Submitted By', comp.submitter_name || comp.submitted_by || '—'],
       ['Competition ID', comp.id],
       ['Organizer', comp.organizer],
       ['Level', `<span class="level-badge level-${comp.level}">${comp.level}</span>`],
@@ -494,7 +525,10 @@ async function viewDetail(id, user) {
   <div style="margin-bottom:20px">
     <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">Team Members</div>
     <div class="member-tags">
-      ${(comp.members || []).map(nim => `<div class="member-tag">${memberName(nim)} ${nim === comp.leader ? '👑' : ''}</div>`).join('')}
+      ${((comp.members_detail || []).length
+        ? comp.members_detail
+        : (comp.members || []).map(nim => ({ nim, name: nim, is_leader: nim === comp.leader }))
+       ).map(m => `<div class="member-tag">${m.name}${m.nim !== m.name ? ` <span style="color:var(--text3);font-size:11px">(${m.nim})</span>` : ''} ${m.is_leader ? '👑' : ''}</div>`).join('')}
     </div>
   </div>
   ${comp.proposal_link || comp.proposalLink ? `<div style="margin-bottom:20px">
@@ -542,118 +576,215 @@ async function viewDetail(id, user) {
 async function downloadLetter(id) {
   const comp = await getCompetition(id);
   if (!comp) return;
-  const leader = Object.values(USERS).find(u => u.nim === (comp.leader_nim || comp.leader));
-  const today = new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
-  const nomorSurat = `UXY/FTI/DISP/${comp.id.replace('COMP-', '')}/${new Date().getFullYear()}`;
 
-  openModal('Surat Exemption – ' + comp.id, `
-  <div class="pdf-preview">
-    <div class="pdf-header">
-      <div class="pdf-logo-text">UNIVERSITAS XYZ</div>
-      <div class="pdf-subtitle">Fakultas Teknologi dan Informatika</div>
-      <div class="pdf-subtitle">Jl. Universitas No. 1, Kota ABC, Indonesia</div>
-    </div>
-    <div class="pdf-title">SURAT DISPENSASI MAHASISWA</div>
-    <div class="pdf-number">Nomor: ${nomorSurat}</div>
-    <div class="pdf-body">
-      <p>Yang bertanda tangan di bawah ini, Dekan Fakultas Teknologi dan Informatika Universitas XYZ, dengan ini memberikan exemption kepada:</p>
-      <table style="width:100%;margin-bottom:16px;font-size:13px">
-        <tr><td style="width:160px">Nama</td><td>: <span class="pdf-underline">${leader?.name || comp.leader_nim || comp.leader}</span></td></tr>
-        <tr><td>NIM</td><td>: <span class="pdf-underline">${comp.leader_nim || comp.leader}</span></td></tr>
-        <tr><td>Program Studi</td><td>: <span class="pdf-underline">${comp.major}</span></td></tr>
-        <tr><td>Kegiatan</td><td>: <span class="pdf-underline">${comp.name}</span></td></tr>
-        <tr><td>Penyelenggara</td><td>: <span class="pdf-underline">${comp.organizer}</span></td></tr>
-        <tr><td>Tanggal</td><td>: <span class="pdf-underline">${formatDate(comp.date_start || comp.dateStart)} s.d. ${formatDate(comp.date_end || comp.dateEnd)}</span></td></tr>
-      </table>
-      <p>Mahasiswa yang bersangkutan diizinkan untuk tidak menghadiri perkuliahan selama kegiatan berlangsung.</p>
-      <p>Demikian exemption letter ini dibuat untuk dapat dipergunakan sebagaimana mestinya.</p>
-    </div>
-    <div class="pdf-sig">
-      <div>
-        <div>${today}</div>
-        <div>Dekan Fakultas Teknologi dan Informatika</div>
-        <div class="pdf-sig-line">Prof. Sari Lestari, Ph.D.<br>NIP. 123456789</div>
-      </div>
-    </div>
+  // Fetch all members for the member table — prefer members_detail (has name+nim), fall back to members (NIM strings)
+  const membersDetail = comp.members_detail && comp.members_detail.length > 0
+    ? comp.members_detail
+    : (comp.members || []).map(nim => ({ nim, name: nim, is_leader: nim === comp.leader }));
+  const today = new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
+  const nomorSurat = `${LETTER_CONFIG.letterCodePrefix}/${comp.id.replace('COMP-', '')}/${new Date().getFullYear()}`;
+  const dateRange = `${formatDate(comp.date_start || comp.dateStart)} s.d. ${formatDate(comp.date_end || comp.dateEnd)}`;
+
+  // Build member rows — leader always first
+  // Priority: is_leader flag → leader NIM match → stored leader_name/nim → submitter as fallback
+  const leaderNim  = comp.leader || comp.leader_nim || comp.submitter_nim || '-';
+  const leaderEntry = membersDetail.find(m => m.is_leader) || membersDetail.find(m => m.nim === leaderNim);
+  const leaderName = leaderEntry?.name || comp.leader_name || comp.submitter_name || leaderNim;
+  const leaderNimDisplay = leaderEntry?.nim || leaderNim;
+  let memberRows = `<tr><td style="border:1px solid #333;padding:4px 8px">${leaderName}</td><td style="border:1px solid #333;padding:4px 8px">${leaderNimDisplay}</td></tr>`;
+  const otherMembers = membersDetail.filter(m => m.nim !== leaderNimDisplay && !m.is_leader);
+  if (otherMembers.length > 0) {
+    otherMembers.forEach(m => {
+      memberRows += `<tr><td style="border:1px solid #333;padding:4px 8px">${m.name || m.nim}</td><td style="border:1px solid #333;padding:4px 8px">${m.nim}</td></tr>`;
+    });
+  }
+
+  openModal('Surat Dispensasi – ' + comp.id, `
+  <div class="pdf-preview" style="font-family:'Times New Roman',serif;font-size:13px;line-height:1.6;color:#000;padding:32px 40px;max-width:680px;margin:0 auto">
+
+    <p style="text-align:right;margin:0 0 4px 0">Jakarta, <strong>${today}</strong></p>
+    <p style="margin:0">No. &nbsp;&nbsp;: ${nomorSurat}</p>
+    <p style="margin:0 0 20px 0">Hal &nbsp;&nbsp;: Permohonan Dispensasi Kuliah</p>
+
+    <p style="margin:0">Yth.</p>
+    <p style="margin:0">${LETTER_CONFIG.recipientName}</p>
+    <p style="margin:0 0 16px 0">Di Tempat</p>
+
+    <p style="margin:0 0 8px 0">Dengan hormat,</p>
+    <p style="text-align:justify;margin:0 0 4px 0">Sehubungan dengan keberhasilan mahasiswa dalam mengikuti lomba <strong>${comp.name}</strong> dan dinyatakan sebagai <strong>${comp.achievement_result || 'Finalist'},</strong> yang akan diselenggarakan pada:</p>
+    <p style="margin:0">Hari/Tanggal &nbsp;: <strong>${dateRange}</strong></p>
+    <p style="margin:0 0 12px 0">Tempat &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;: <strong>${comp.organizer || '-'}</strong></p>
+
+    <p style="text-align:justify;margin:0 0 12px 0">Maka melalui surat ini kami memohon izin untuk memberikan dispensasi kepada mahasiswa berikut:</p>
+
+    <table style="width:100%;border-collapse:collapse;margin-bottom:16px">
+      <tr><td style="border:1px solid #333;padding:4px 8px;font-weight:bold">Nama Lengkap</td><td style="border:1px solid #333;padding:4px 8px;font-weight:bold">NIM</td></tr>
+      ${memberRows}
+    </table>
+
+    <p style="text-align:justify;margin:0 0 8px 0">Kami sangat menghargai kerja sama dan dukungan dari pihak ${LETTER_CONFIG.recipientShort} dalam mendukung potensi pengembangan mahasiswa.</p>
+    <p style="text-align:justify;margin:0 0 24px 0">Demikian surat permohonan ini kami sampaikan. Atas perhatian nya kami mengucapkan terima kasih.</p>
+
+    <p style="margin:0 0 48px 0">Hormat kami,</p>
+    <p style="margin:0"><strong><u>${LETTER_CONFIG.deanName}</u></strong></p>
+    <p style="margin:0">${LETTER_CONFIG.deanTitle}</p>
   </div>`,
   `<button class="btn btn-ghost" onclick="closeModalDirect()">Tutup</button>
-   <button class="btn btn-primary" onclick="generatePDF('${id}')">⬇ Download PDF</button>`);
+   <button class="btn btn-primary" onclick="generateDOCX('${id}')">⬇ Download Word</button>`);
 }
 
-async function generatePDF(id) {
+async function generateDOCX(id) {
   const comp = await getCompetition(id);
   if (!comp) return;
 
   function doGenerate() {
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-    const pageW = 210, marginL = 25, marginR = 25, contentW = pageW - marginL - marginR;
-    const leader = Object.values(USERS).find(u => u.nim === (comp.leader_nim || comp.leader));
-    const leaderName = leader?.name || comp.leader_nim || comp.leader;
+    const {
+      Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell,
+      AlignmentType, BorderStyle, WidthType, ShadingType, VerticalAlign,
+      UnderlineType
+    } = window.docx;
+
     const today = new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
-    const nomorSurat = `UXY/FTI/DISP/${comp.id.replace('COMP-', '')}/${new Date().getFullYear()}`;
-    let y = 18;
+    const nomorSurat = `${LETTER_CONFIG.letterCodePrefix}/${comp.id.replace('COMP-', '')}/${new Date().getFullYear()}`;
+    const dateRange = `${formatDate(comp.date_start || comp.dateStart)} s.d. ${formatDate(comp.date_end || comp.dateEnd)}`;
 
-    doc.setFont('times', 'bold'); doc.setFontSize(16);
-    doc.text('UNIVERSITAS XYZ', pageW / 2, y, { align: 'center' }); y += 7;
-    doc.setFont('times', 'normal'); doc.setFontSize(11);
-    doc.text('Fakultas Teknologi dan Informatika', pageW / 2, y, { align: 'center' }); y += 5;
-    doc.text('Jl. Universitas No. 1, Kota ABC, Indonesia', pageW / 2, y, { align: 'center' }); y += 6;
-    doc.setLineWidth(1); doc.line(marginL, y, pageW - marginR, y); y += 1;
-    doc.setLineWidth(0.3); doc.line(marginL, y, pageW - marginR, y); y += 10;
-    doc.setFont('times', 'bold'); doc.setFontSize(13);
-    doc.text('SURAT DISPENSASI MAHASISWA', pageW / 2, y, { align: 'center' }); y += 6;
-    doc.setFont('times', 'normal'); doc.setFontSize(11);
-    doc.text(`Nomor: ${nomorSurat}`, pageW / 2, y, { align: 'center' }); y += 12;
+    const membersDetail = comp.members_detail && comp.members_detail.length > 0
+      ? comp.members_detail
+      : (comp.members || []).map(nim => ({ nim, name: nim, is_leader: nim === comp.leader }));
+    const leaderNim     = comp.leader || comp.leader_nim || comp.submitter_nim || '-';
+    const leaderEntry   = membersDetail.find(m => m.is_leader) || membersDetail.find(m => m.nim === leaderNim);
+    const leaderName    = leaderEntry?.name || comp.leader_name || comp.submitter_name || leaderNim;
+    const leaderNimDisp = leaderEntry?.nim  || leaderNim;
+    const otherMembers  = membersDetail.filter(m => m.nim !== leaderNimDisp && !m.is_leader);
 
-    const pembuka = 'Yang bertanda tangan di bawah ini, Dekan Fakultas Teknologi dan Informatika Universitas XYZ, dengan ini memberikan exemption kepada:';
-    const lines = doc.splitTextToSize(pembuka, contentW);
-    doc.text(lines, marginL, y); y += lines.length * 6 + 6;
-
-    const labelX = marginL + 5, colonX = marginL + 50, valueX = marginL + 55;
-    [
-      ['Nama', leaderName],
-      ['NIM', comp.leader_nim || comp.leader],
-      ['Program Studi', comp.major],
-      ['Kegiatan', comp.name],
-      ['Penyelenggara', comp.organizer],
-      ['Tanggal', `${formatDate(comp.date_start || comp.dateStart)} s.d. ${formatDate(comp.date_end || comp.dateEnd)}`],
-    ].forEach(([label, value]) => {
-      doc.text(label, labelX, y); doc.text(':', colonX, y);
-      const vLines = doc.splitTextToSize(value, contentW - 55);
-      doc.text(vLines, valueX, y);
-      doc.setLineWidth(0.2); doc.line(valueX, y + 1, valueX + doc.getTextWidth(vLines[0]) + 4, y + 1);
-      y += vLines.length * 6 + 2;
+    // ── Helper: justified paragraph ──────────────────────────
+    const justPara = (runs, spacingAfter = 160) => new Paragraph({
+      alignment: AlignmentType.JUSTIFIED,
+      spacing: { after: spacingAfter },
+      children: Array.isArray(runs) ? runs : [runs],
     });
-    y += 8;
 
-    const isi = 'Mahasiswa yang bersangkutan diizinkan untuk tidak menghadiri perkuliahan selama kegiatan berlangsung. Mahasiswa diwajibkan untuk berkoordinasi dengan dosen pengampu masing-masing mata kuliah.';
-    const isiLines = doc.splitTextToSize(isi, contentW);
-    doc.text(isiLines, marginL, y); y += isiLines.length * 6 + 6;
-    const isi2Lines = doc.splitTextToSize('Demikian exemption letter ini dibuat untuk dapat dipergunakan sebagaimana mestinya.', contentW);
-    doc.text(isi2Lines, marginL, y); y += isi2Lines.length * 6 + 16;
+    const normalRun  = (text, opts = {}) => new TextRun({ text, font: 'Times New Roman', size: 22, ...opts });
+    const boldRun    = (text)            => normalRun(text, { bold: true });
 
-    const sigX = pageW - marginR - 60;
-    doc.text(today, sigX, y, { align: 'center' }); y += 6;
-    doc.text('Dekan Fakultas Teknologi dan Informatika', sigX, y, { align: 'center' }); y += 36;
-    doc.setFont('times', 'bold');
-    doc.text('Prof. Sari Lestari, Ph.D.', sigX, y, { align: 'center' });
-    doc.setFont('times', 'normal'); y += 5;
-    doc.text('NIP. 123456789', sigX, y, { align: 'center' });
-    doc.setLineWidth(0.3); doc.line(sigX - 45, y - 10, sigX + 45, y - 10);
+    // ── Table border helper ───────────────────────────────────
+    const cellBorder = { style: BorderStyle.SINGLE, size: 6, color: '000000' };
+    const allBorders = { top: cellBorder, bottom: cellBorder, left: cellBorder, right: cellBorder };
 
-    doc.save(`Surat-Exemption-${comp.id}-${comp.leader_nim || comp.leader}.pdf`);
-    toast('Surat Exemption berhasil didownload! 📄', 'success');
-    closeModalDirect();
+    const makeCell = (text, bold = false, isHeader = false) => new TableCell({
+      borders: allBorders,
+      shading: isHeader ? { fill: 'FFFFFF', type: ShadingType.CLEAR } : { fill: 'FFFFFF', type: ShadingType.CLEAR },
+      margins: { top: 60, bottom: 60, left: 100, right: 100 },
+      width: { size: 50, type: WidthType.PERCENTAGE },
+      children: [new Paragraph({
+        children: [normalRun(text, { bold: bold || isHeader })],
+      })],
+    });
+
+    // ── Member table rows ─────────────────────────────────────
+    const tableRows = [
+      new TableRow({ children: [makeCell('Nama Lengkap', true, true), makeCell('NIM', true, true)] }),
+      new TableRow({ children: [makeCell(leaderName, true), makeCell(leaderNimDisp, true)] }),
+      ...otherMembers.map(m => new TableRow({ children: [makeCell(m.name || m.nim), makeCell(m.nim)] })),
+    ];
+
+    const memberTable = new Table({
+      width: { size: 100, type: WidthType.PERCENTAGE },
+      rows: tableRows,
+    });
+
+    // ── Document ──────────────────────────────────────────────
+    const doc = new Document({
+      sections: [{
+        properties: {
+          page: {
+            size: { width: 11906, height: 16838 }, // A4
+            margin: { top: 1418, right: 1134, bottom: 1134, left: 1418 }, // ~2.5cm / 2cm
+          },
+        },
+        children: [
+          // Date right-aligned
+          new Paragraph({
+            alignment: AlignmentType.RIGHT,
+            spacing: { after: 0 },
+            children: [normalRun(`Jakarta, `), boldRun(today)],
+          }),
+
+          // No. / Hal
+          new Paragraph({ spacing: { after: 0 }, children: [normalRun(`No.  : ${nomorSurat}`)] }),
+          new Paragraph({ spacing: { after: 200 }, children: [normalRun(`Hal  : Permohonan Dispensasi Kuliah`)] }),
+
+          // Recipient
+          new Paragraph({ spacing: { after: 0 }, children: [normalRun('Yth.')] }),
+          new Paragraph({ spacing: { after: 0 }, children: [normalRun(LETTER_CONFIG.recipientName)] }),
+          new Paragraph({ spacing: { after: 200 }, children: [normalRun('Di Tempat')] }),
+
+          // Salutation
+          new Paragraph({ spacing: { after: 120 }, children: [normalRun('Dengan hormat,')] }),
+
+          // Body paragraph 1
+          justPara([
+            normalRun('Sehubungan dengan keberhasilan mahasiswa dalam mengikuti lomba '),
+            boldRun(comp.name),
+            normalRun(' dan dinyatakan sebagai '),
+            boldRun(`${comp.achievement_result || 'Finalist'},`),
+            normalRun(' yang akan diselenggarakan pada:'),
+          ], 80),
+
+          // Date / Venue
+          new Paragraph({ spacing: { after: 0 }, children: [normalRun('Hari/Tanggal\t: '), boldRun(dateRange)] }),
+          new Paragraph({ spacing: { after: 160 }, children: [normalRun('Tempat\t\t: '), boldRun(comp.organizer || '-')] }),
+
+          // Body paragraph 2
+          justPara(normalRun('Maka melalui surat ini kami memohon izin untuk memberikan dispensasi kepada mahasiswa berikut:'), 120),
+
+          // Member table
+          memberTable,
+
+          // Empty spacing after table
+          new Paragraph({ spacing: { after: 160 }, children: [] }),
+
+          // Closing paragraphs
+          justPara(normalRun(`Kami sangat menghargai kerja sama dan dukungan dari pihak ${LETTER_CONFIG.recipientShort} dalam mendukung potensi pengembangan mahasiswa.`)),
+          justPara(normalRun('Demikian surat permohonan ini kami sampaikan. Atas perhatian nya kami mengucapkan terima kasih.')),
+
+          // Sign-off
+          new Paragraph({ spacing: { after: 0 }, children: [normalRun('Hormat kami,')] }),
+          new Paragraph({ spacing: { after: 0 }, children: [] }),
+          new Paragraph({ spacing: { after: 0 }, children: [] }),
+          new Paragraph({ spacing: { after: 0 }, children: [] }),
+
+          // Signature name — bold + underline
+          new Paragraph({
+            spacing: { after: 0 },
+            children: [normalRun(LETTER_CONFIG.deanName, { bold: true, underline: { type: UnderlineType.SINGLE } })],
+          }),
+          new Paragraph({ spacing: { after: 0 }, children: [normalRun(LETTER_CONFIG.deanTitle)] }),
+        ],
+      }],
+    });
+
+    Packer.toBlob(doc).then(blob => {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Surat-Dispensasi-${comp.id}.docx`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      toast('Surat Dispensasi berhasil didownload! 📄', 'success');
+      closeModalDirect();
+    });
   }
 
-  if (window.jspdf) {
+  if (window.docx) {
     doGenerate();
   } else {
     const script = document.createElement('script');
-    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+    script.src = 'https://unpkg.com/docx@8.5.0/build/index.umd.js';
     script.onload = doGenerate;
-    script.onerror = () => toast('Gagal memuat library PDF', 'error');
+    script.onerror = () => toast('Gagal memuat library Word', 'error');
     document.head.appendChild(script);
   }
 }
