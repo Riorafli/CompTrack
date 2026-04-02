@@ -223,24 +223,7 @@ body {
 .role-option-label { font-size: 11px; font-weight: 600; color: #3d5465; }
 .role-option.selected .role-option-label { color: #2e86ab; }
 
-/* ── DEMO QUICK LOGIN ── */
-.demo-section {
-  margin-top: 24px; padding-top: 20px;
-  border-top: 1px solid #ccdde9;
-}
-.demo-label {
-  font-size: 10px; text-transform: uppercase; letter-spacing: .08em;
-  color: #7a96a8; margin-bottom: 10px; text-align: center;
-}
-.demo-chips { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
-.demo-chip {
-  padding: 5px 12px; border-radius: 20px;
-  border: 1.5px solid #ccdde9; background: #ffffff;
-  color: #3d5465; cursor: pointer; font-size: 11.5px;
-  font-family: var(--font-sans); transition: all .15s;
-  box-shadow: 0 1px 3px rgba(46,134,171,0.06);
-}
-.demo-chip:hover { border-color: #2e86ab; color: #2e86ab; background: #f0f7fb; }
+/* ── ACCOUNT INFO ── */
 
 /* ── STEP INDICATOR (signup) ── */
 .steps {
@@ -369,16 +352,7 @@ function renderLogin() {
   <div class="auth-switch">
     Don't have an account? <a onclick="currentView='signup';render()">Create one</a>
   </div>
-
-  <div class="demo-section">
-    <div class="demo-label">Demo — Quick Login</div>
-    <div class="demo-chips">
-      <button class="demo-chip" onclick="loginAs('student')">🎓 Student</button>
-      <button class="demo-chip" onclick="loginAs('pic')">👤 PIC Major</button>
-      <button class="demo-chip" onclick="loginAs('faculty')">🏛 Faculty</button>
-      <button class="demo-chip" onclick="loginAs('superadmin')">⚡ Super Admin</button>
-    </div>
-  </div>`;
+  `;
 }
 
 // ── SIGNUP STEP 1 ────────────────────────────────────────
@@ -430,28 +404,55 @@ function renderSignup1() {
 }
 
 // ── SIGNUP STEP 2 ────────────────────────────────────────
-function renderSignup2() {
-
-  const majors = [
+const CAMPUS_MAJORS = {
+  'BINUS @Kemanggisan': [
     'Computer Science',
     'CS - Statistics',
     'CS - Mathematics',
-    'CS - Global Class',
-    'CS - Software Engineering',
     'Game Application & Technology',
     'Cyber Security',
     'Artificial Intelligence',
     'Data Science',
-  ];
-  const campuses = [
-    'BINUS @Kemanggisan',
-    'BINUS @Alam Sutera',
-    'BINUS @Bekasi',
-    'BINUS @Bandung',
-    'BINUS @Malang',
-    'BINUS @Semarang',
-    'BINUS @Medan',
-  ];
+  ],
+  'BINUS @Alam Sutera': [
+    'Computer Science',
+    'CS - Global Class',
+    'Cyber Security',
+    'Artificial Intelligence',
+  ],
+  'BINUS @Bekasi': [
+    'CS - Software Engineering',
+  ],
+  'BINUS @Bandung': [
+    'Computer Science - Bandung',
+  ],
+  'BINUS @Malang': [
+    'Computer Science - Malang',
+  ],
+  'BINUS @Semarang': [
+    'Computer Science - Semarang',
+  ],
+  'BINUS @Medan': [
+    'Computer Science - Medan',
+  ],
+};
+
+function updateMajorOptions() {
+  const region = document.getElementById('s-region')?.value;
+  const majorSelect = document.getElementById('s-major');
+  if (!majorSelect) return;
+
+  const majors = CAMPUS_MAJORS[region] || [];
+  majorSelect.innerHTML = `<option value="" disabled selected>Select your major...</option>`
+    + majors.map(m => `<option value="${m}">${m}</option>`).join('');
+  majorSelect.disabled = !region;
+  majorSelect.style.opacity = region ? '1' : '0.5';
+  document.getElementById('err-major').textContent = '';
+}
+
+function renderSignup2() {
+  const campuses = Object.keys(CAMPUS_MAJORS);
+
   document.getElementById('auth-card').innerHTML = `
   <div class="steps">
     <div class="step done"><div class="step-num">✓</div> Account</div>
@@ -471,23 +472,22 @@ function renderSignup2() {
     </div>
 
     <div class="form-group">
-      <label>Major / Department *</label>
-      <select id="s-major" style="width:100%;padding:10px 12px;background:var(--surface2);border:1.5px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-family:var(--font-sans);font-size:13.5px;outline:none"
-        onchange="this.style.borderColor='var(--border)';document.getElementById('err-major').textContent=''">
-        <option value="" disabled ${!signupStep1Data?.major?'selected':''}>Select your major...</option>
-        ${majors.map(m => `<option value="${m}" ${m===signupStep1Data?.major?'selected':''}>${m}</option>`).join('')}
+      <label>BINUS Campus / Region *</label>
+      <select id="s-region" style="width:100%;padding:10px 12px;background:var(--surface2);border:1.5px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-family:var(--font-sans);font-size:13.5px;outline:none"
+        onchange="this.style.borderColor='var(--border)';document.getElementById('err-region').textContent='';updateMajorOptions()">
+        <option value="" disabled selected>Select your campus...</option>
+        ${campuses.map(c => `<option value="${c}">${c}</option>`).join('')}
       </select>
-      <div class="field-error" id="err-major"></div>
+      <div class="field-error" id="err-region"></div>
     </div>
 
     <div class="form-group">
-      <label>BINUS Campus / Region *</label>
-      <select id="s-region" style="width:100%;padding:10px 12px;background:var(--surface2);border:1.5px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-family:var(--font-sans);font-size:13.5px;outline:none"
-        onchange="this.style.borderColor='var(--border)';document.getElementById('err-region').textContent=''">
-        <option value="" disabled ${!signupStep1Data?.region?'selected':''}>Select your campus...</option>
-        ${campuses.map(c => `<option value="${c}" ${c===signupStep1Data?.region?'selected':''}>${c}</option>`).join('')}
+      <label>Major / Department *</label>
+      <select id="s-major" disabled style="width:100%;padding:10px 12px;background:var(--surface2);border:1.5px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-family:var(--font-sans);font-size:13.5px;outline:none;opacity:0.5"
+        onchange="this.style.borderColor='var(--border)';document.getElementById('err-major').textContent=''">
+        <option value="" disabled selected>Select your campus first...</option>
       </select>
-      <div class="field-error" id="err-region"></div>
+      <div class="field-error" id="err-major"></div>
     </div>
 
     <button class="btn-auth" onclick="doRegister()">Create Account →</button>
@@ -603,23 +603,6 @@ async function doLogin() {
   } catch (err) {
     if (btn) { btn.disabled = false; btn.textContent = 'Sign In →'; }
     toast(err.message || 'Invalid email or password', 'error');
-  }
-}
-
-async function loginAs(role) {
-  const emails = {
-    student: 'aliyah@university.ac.id',
-    pic:     'hendra@university.ac.id',
-    faculty: 'sari@university.ac.id',
-    superadmin: 'admin@university.ac.id',
-  };
-  showSSOOverlay('Signing in...');
-  try {
-    await loginWithEmail(emails[role], 'password');
-    window.location.href = 'dashboard.html';
-  } catch (err) {
-    hideSSOOverlay();
-    toast(err.message || 'Login failed', 'error');
   }
 }
 
