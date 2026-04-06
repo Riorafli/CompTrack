@@ -349,14 +349,36 @@ const AVATAR_COLORS = [
 ];
 
 const MAJORS_BY_CAMPUS = {
-  'BINUS @Kemanggisan': ['Computer Science','CS - Statistics','CS - Mathematics','Game Application & Technology','Cyber Security','Artificial Intelligence','Data Science'],
-  'BINUS @Alam Sutera':  ['Computer Science','CS - Global Class','Cyber Security','Artificial Intelligence'],
-  'BINUS @Bekasi':       ['CS - Software Engineering'],
-  'BINUS @Bandung':      ['Computer Science - Bandung'],
-  'BINUS @Malang':       ['Computer Science - Malang'],
-  'BINUS @Semarang':     ['Computer Science - Semarang'],
-  'BINUS @Medan':        ['Computer Science - Medan'],
+  'Kemanggisan': ['Computer Science','Computer Science - Statistics','Computer Science - Mathematics','Game Application & Technology','Cyber Security','Artificial Intelligence','Data Science'],
+  'Alam Sutera': ['Computer Science','Computer Science - Global Class','Cyber Security','Artificial Intelligence'],
+  'Bekasi':      ['Computer Science - Software Engineering'],
+  'Bandung':     ['Computer Science'],
+  'Malang':      ['Computer Science'],
+  'Semarang':    ['Computer Science'],
+  'Medan':       ['Computer Science'],
 };
+
+// Known campus names used to strip legacy combined "Major Campus" strings
+const KNOWN_CAMPUSES = Object.keys(MAJORS_BY_CAMPUS);
+
+// Parse a potentially legacy "Major Campus" string into { major, campus }
+function parseMajorCampus(raw) {
+  if (!raw) return { major: '', campus: '' };
+  for (const campus of KNOWN_CAMPUSES) {
+    const suffix = ' ' + campus;
+    if (raw.toLowerCase().endsWith(suffix.toLowerCase())) {
+      return { major: raw.slice(0, raw.length - suffix.length).trim(), campus };
+    }
+  }
+  // Try " - " separator (e.g. "Computer Science - Global Class" stored as major, no campus)
+  // Find campus from MAJORS_BY_CAMPUS
+  for (const [campus, majors] of Object.entries(MAJORS_BY_CAMPUS)) {
+    if (majors.some(m => m.toLowerCase() === raw.toLowerCase())) {
+      return { major: raw, campus };
+    }
+  }
+  return { major: raw, campus: '' };
+}
 
 const PERMISSIONS = {
   student:    ['Submit & edit competition proposals','View own approval timeline','Download exemption letters','Log achievement reports'],
@@ -423,13 +445,14 @@ async function initProfile() {
   `).join('');
 
   // Account overview
-  document.getElementById('ov-id').textContent      = user.id || user.userId || '—';
-  document.getElementById('ov-email').textContent   = user.email;
-  document.getElementById('ov-role').textContent    = roleLabel;
-  document.getElementById('ov-major').textContent   = user.major || '—';
-  document.getElementById('ov-nim').textContent     = user.nim || '—';
+  document.getElementById('ov-major').textContent   = user.major  || '—';
+  document.getElementById('ov-region').textContent  = user.region || '—';
+  document.getElementById('ov-nim').textContent     = user.nim    || '—';
   document.getElementById('ov-joined').textContent  = user.createdAt ? formatDate(user.createdAt) : '—';
   document.getElementById('ov-updated').textContent = user.updatedAt ? formatDate(user.updatedAt) : '—';
+
+  // Also update the major display input for students
+  document.getElementById('inp-major-display').value = user.major || '—';
 
   // Permissions
   const perms = PERMISSIONS[user.role] || [];
@@ -449,21 +472,15 @@ async function initProfile() {
   // Populate major modal dropdown — skip optgroups that would be empty
   const sel = document.getElementById('modal-new-major');
 
-  // Find student's current campus
-  let currentCampus = '—';
-  Object.entries(MAJORS_BY_CAMPUS).forEach(([campus, majors]) => {
-    if (majors.includes(user.major)) currentCampus = campus;
-  });
-  document.getElementById('modal-current-campus').value = currentCampus;
-
-  // Short region label (e.g. "BINUS @Bekasi" → "Bekasi")
-  const regionShort = currentCampus.replace('BINUS @', '').replace('BINUS ', '');
-  document.getElementById('ov-region').textContent = currentCampus !== '—' ? regionShort : '—';
+  // Populate major change modal with current values
+  const currentMajorClean = user.major || '';
+  document.getElementById('modal-current-campus').value = user.region || '—';
+  document.getElementById('modal-current-major').value  = currentMajorClean || '—';
 
   Object.entries(MAJORS_BY_CAMPUS).forEach(([campus, majors]) => {
     // Include ALL majors except the student's exact current one
-    const opts = majors.filter(m => m !== user.major);
-    if (opts.length === 0) return; // skip campus if no alternatives
+    const opts = majors.filter(m => m.toLowerCase() !== currentMajorClean.toLowerCase());
+    if (opts.length === 0) return;
     const group = document.createElement('optgroup');
     group.label = campus;
     opts.forEach(m => {
@@ -473,8 +490,6 @@ async function initProfile() {
     });
     sel.appendChild(group);
   });
-
-  document.getElementById('modal-current-major').value = user.major || '—';
 }
 
 async function loadStats() {
@@ -586,10 +601,8 @@ function submitMajorChangeRequest() {
   if (!reason)   { toast('Please provide a reason', 'error'); return; }
 
   // Resolve current campus from major
-  let currentCampus = '—';
-  Object.entries(MAJORS_BY_CAMPUS).forEach(([campus, majors]) => {
-    if (majors.includes(user.major)) currentCampus = campus;
-  });
+  const currentParsed = parseMajorCampus(user.major || '');
+  const currentCampus = currentParsed.campus || '—';
 
   const mcr = {
     id: 'MCR-' + Date.now(),
