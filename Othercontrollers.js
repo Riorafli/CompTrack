@@ -1,18 +1,23 @@
-// src/controllers/userController.js
+// src/controllers/Othercontrollers.js
 const bcrypt = require('bcryptjs');
 const { pool } = require('../config/db');
 
-// ── GET /api/users  (superadmin only) ────────────────────
+
+// ════════════════════════════════════════════════════
+// USERS  (superadmin only)
+// ════════════════════════════════════════════════════
+
+// ── GET /api/users ────────────────────────────────
 async function getAll(req, res, next) {
   try {
     const [rows] = await pool.query(
-      'SELECT id, name, email, nim, major, role, color, avatar_url, is_active, created_at FROM users ORDER BY created_at DESC'
+      'SELECT id, name, email, nim, major, region, role, color, avatar_url, is_active, created_at FROM users ORDER BY created_at DESC'
     );
     res.json({ success: true, data: rows });
   } catch (err) { next(err); }
 }
 
-// ── PATCH /api/users/:id/role  (superadmin only) ─────────
+// ── PATCH /api/users/:id/role ─────────────────────
 async function updateRole(req, res, next) {
   try {
     const { role } = req.body;
@@ -25,7 +30,7 @@ async function updateRole(req, res, next) {
   } catch (err) { next(err); }
 }
 
-// ── PATCH /api/users/:id/toggle  (superadmin only) ───────
+// ── PATCH /api/users/:id/toggle ──────────────────
 async function toggleActive(req, res, next) {
   try {
     const [rows] = await pool.query('SELECT is_active FROM users WHERE id = ?', [req.params.id]);
@@ -40,8 +45,10 @@ module.exports = { getAll, updateRole, toggleActive };
 
 
 // ════════════════════════════════════════════════════
-// src/controllers/notificationController.js
+// NOTIFICATIONS
 // ════════════════════════════════════════════════════
+
+// ── GET /api/notifications ────────────────────────
 async function getNotifications(req, res, next) {
   try {
     const [rows] = await pool.query(
@@ -53,24 +60,42 @@ async function getNotifications(req, res, next) {
   } catch (err) { next(err); }
 }
 
-async function markRead(req, res, next) {
+// ── PATCH /api/notifications/all/read ────────────
+// Marks every notification for the current user as read.
+// Must be registered BEFORE /:id/read in the router so Express
+// does not treat the literal string "all" as a param value.
+async function markAllRead(req, res, next) {
   try {
-    const { id } = req.params;
-    if (id === 'all') {
-      await pool.query('UPDATE notifications SET is_read = 1 WHERE user_id = ?', [req.user.id]);
-    } else {
-      await pool.query('UPDATE notifications SET is_read = 1 WHERE id = ? AND user_id = ?', [id, req.user.id]);
-    }
+    await pool.query(
+      'UPDATE notifications SET is_read = 1 WHERE user_id = ?',
+      [req.user.id]
+    );
     res.json({ success: true });
   } catch (err) { next(err); }
 }
 
-module.exports.notif = { getNotifications, markRead };
+// ── PATCH /api/notifications/:id/read ────────────
+// Marks a single notification as read. Scoped to the current
+// user so one user cannot mark another's notifications.
+async function markOneRead(req, res, next) {
+  try {
+    const { id } = req.params;
+    await pool.query(
+      'UPDATE notifications SET is_read = 1 WHERE id = ? AND user_id = ?',
+      [id, req.user.id]
+    );
+    res.json({ success: true });
+  } catch (err) { next(err); }
+}
+
+module.exports.notif = { getNotifications, markAllRead, markOneRead };
 
 
 // ════════════════════════════════════════════════════
-// src/controllers/analyticsController.js
+// ANALYTICS  (faculty / superadmin only)
 // ════════════════════════════════════════════════════
+
+// ── GET /api/analytics ────────────────────────────
 async function getAnalytics(req, res, next) {
   try {
     // Rejected statuses should not count toward funding
@@ -79,8 +104,8 @@ async function getAnalytics(req, res, next) {
     const [[totals]] = await pool.query(`
       SELECT
         COUNT(*) as total,
-        SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed,
-        SUM(CASE WHEN status = 'submitted' THEN 1 ELSE 0 END) as pending_pic,
+        SUM(CASE WHEN status = 'completed'    THEN 1 ELSE 0 END) as completed,
+        SUM(CASE WHEN status = 'submitted'    THEN 1 ELSE 0 END) as pending_pic,
         SUM(CASE WHEN status = 'pic_approved' THEN 1 ELSE 0 END) as pending_faculty,
         SUM(CASE WHEN status IN ${activeStatuses} THEN funding ELSE 0 END) as total_funding
       FROM competitions
@@ -130,11 +155,15 @@ module.exports.analytics = { getAnalytics };
 
 
 // ════════════════════════════════════════════════════
-// src/controllers/exportController.js
+// EXPORT  (faculty / superadmin only)
 // ════════════════════════════════════════════════════
+
+// ── GET /api/export/:type ─────────────────────────
+// Supported types: all-submissions | achievements | funding |
+//                  kpi | letters | activity-log
 async function exportData(req, res, next) {
   try {
-    const { type } = req.params; // all-submissions | achievements | funding | kpi | letters | activity-log
+    const { type } = req.params;
     let rows;
 
     if (type === 'all-submissions') {
@@ -148,22 +177,24 @@ async function exportData(req, res, next) {
       `);
     } else if (type === 'achievements') {
       [rows] = await pool.query(`
-        SELECT c.id, c.name, c.major, c.level, a.result, a.certificate, a.documentation, a.reported_at
+        SELECT c.id, c.name, c.major, c.level, a.result,
+               a.certificate, a.documentation, a.reported_at
         FROM achievements a
         JOIN competitions c ON a.competition_id = c.id
         ORDER BY a.reported_at DESC
       `);
     } else if (type === 'funding') {
       [rows] = await pool.query(`
-        SELECT id, name, major, level, funding, status FROM competitions ORDER BY funding DESC
+        SELECT id, name, major, level, funding, status
+        FROM competitions ORDER BY funding DESC
       `);
     } else if (type === 'kpi') {
       [rows] = await pool.query(`
         SELECT major,
           COUNT(*) as total,
           SUM(CASE WHEN status IN ('faculty_approved','completed') THEN 1 ELSE 0 END) as approved,
-          SUM(CASE WHEN status LIKE '%rejected%' THEN 1 ELSE 0 END) as rejected,
-          SUM(CASE WHEN status = 'submitted' THEN 1 ELSE 0 END) as pending,
+          SUM(CASE WHEN status LIKE '%rejected%'                   THEN 1 ELSE 0 END) as rejected,
+          SUM(CASE WHEN status = 'submitted'                       THEN 1 ELSE 0 END) as pending,
           SUM(funding) as total_funding
         FROM competitions GROUP BY major
       `);
@@ -172,7 +203,8 @@ async function exportData(req, res, next) {
         SELECT c.id, c.name, c.leader_nim, c.major,
                h.created_at as generated_date
         FROM competitions c
-        LEFT JOIN competition_history h ON c.id = h.competition_id AND h.status = 'letter_generated'
+        LEFT JOIN competition_history h
+          ON c.id = h.competition_id AND h.status = 'letter_generated'
         WHERE c.letter_generated = 1
       `);
     } else if (type === 'activity-log') {
@@ -184,13 +216,15 @@ async function exportData(req, res, next) {
       return res.status(400).json({ success: false, message: 'Invalid export type' });
     }
 
-    // Build CSV
     if (!rows.length) return res.json({ success: true, data: [], csv: '' });
 
+    // Build CSV
     const headers = Object.keys(rows[0]);
     const csv = [
       headers.join(','),
-      ...rows.map(r => headers.map(h => `"${String(r[h] ?? '').replace(/"/g, '""')}"`).join(','))
+      ...rows.map(r =>
+        headers.map(h => `"${String(r[h] ?? '').replace(/"/g, '""')}"`).join(',')
+      ),
     ].join('\n');
 
     res.setHeader('Content-Type', 'text/csv');
@@ -203,8 +237,10 @@ module.exports.export = { exportData };
 
 
 // ════════════════════════════════════════════════════
-// src/controllers/activityController.js
+// ACTIVITY LOG  (superadmin only)
 // ════════════════════════════════════════════════════
+
+// ── GET /api/activity-log ─────────────────────────
 async function getActivityLog(req, res, next) {
   try {
     const [rows] = await pool.query(
