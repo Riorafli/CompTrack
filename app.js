@@ -210,6 +210,7 @@ async function getCompetitions(params = {}) {
     toast('Failed to load submissions: ' + (data.message || 'Unknown error'), 'error');
     return [];
   }
+  if (data.debug) console.log('[DEBUG getCompetitions]', data.debug);
   _competitionsCache = data.data;
   return data.data;
 }
