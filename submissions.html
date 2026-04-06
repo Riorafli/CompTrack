@@ -31,13 +31,13 @@ if (user) {
 let membersList = [];
 
 const MAJORS_LIST = {
-  'BINUS @Kemanggisan': ['Computer Science','CS - Statistics','CS - Mathematics','Game Application & Technology','Cyber Security','Artificial Intelligence','Data Science'],
-  'BINUS @Alam Sutera':  ['Computer Science','CS - Global Class','Cyber Security','Artificial Intelligence'],
-  'BINUS @Bekasi':       ['CS - Software Engineering'],
-  'BINUS @Bandung':      ['Computer Science - Bandung'],
-  'BINUS @Malang':       ['Computer Science - Malang'],
-  'BINUS @Semarang':     ['Computer Science - Semarang'],
-  'BINUS @Medan':        ['Computer Science - Medan'],
+  'Kemanggisan': ['Computer Science','Computer Science - Statistics','Computer Science - Mathematics','Game Application & Technology','Cyber Security','Artificial Intelligence','Data Science'],
+  'Alam Sutera': ['Computer Science','Computer Science - Global Class','Cyber Security','Artificial Intelligence'],
+  'Bekasi':      ['Computer Science - Software Engineering'],
+  'Bandung':     ['Computer Science'],
+  'Malang':      ['Computer Science'],
+  'Semarang':    ['Computer Science'],
+  'Medan':       ['Computer Science'],
 };
 
 // ── FR-04: Polling — auto-refresh every 30 s ─────────────
@@ -47,7 +47,6 @@ let   _lastData     = null;   // serialised snapshot for change detection
 let   _activeFilter = 'all';  // track current filter so poll respects it
 
 function _isModalOpen() {
-  // Don't disrupt the user if they have a modal open
   const overlay = document.getElementById('modal-overlay') || document.querySelector('.modal-overlay');
   return overlay && overlay.style.display !== 'none' && overlay.style.display !== '';
 }
@@ -72,12 +71,10 @@ async function _pollRefresh() {
     const serialised = JSON.stringify(fresh.map(c => ({ id: c.id, status: c.status, deadline: c.achievement_deadline })));
 
     if (serialised !== _lastData) {
-      // Something changed — re-render the table body silently
       _lastData = serialised;
       const tbody = document.getElementById('sub-table');
       if (tbody) {
         tbody.innerHTML = renderRows(fresh);
-        // Flash subtle highlight so student notices the update
         tbody.style.transition = 'opacity 0.3s';
         tbody.style.opacity = '0.4';
         requestAnimationFrame(() => { tbody.style.opacity = '1'; });
@@ -145,7 +142,6 @@ function daysUntil(dateStr) {
 
 // BR-03: render a coloured deadline badge for the "Report Deadline" column
 function deadlineBadge(comp) {
-  // Only show for faculty-approved (or letter generated) competitions without an achievement yet
   if (!comp.achievement_deadline) return '<span style="color:var(--text3)">—</span>';
   if (comp.achievement) return '<span style="color:var(--text3)">—</span>'; // already reported
 
@@ -155,14 +151,11 @@ function deadlineBadge(comp) {
   if (days === null) return '<span style="color:var(--text3)">—</span>';
 
   if (days < 0) {
-    // overdue
     return `<span style="color:var(--danger);font-weight:600;font-size:12px">⛔ Overdue<br><span style="font-weight:400">${label}</span></span>`;
   }
   if (days <= 3) {
-    // urgent — 3 days or fewer
     return `<span style="color:var(--warn);font-weight:600;font-size:12px">⚠️ ${days}d left<br><span style="font-weight:400">${label}</span></span>`;
   }
-  // normal
   return `<span style="color:var(--text2);font-size:12px">📅 ${days}d left<br><span style="color:var(--text3)">${label}</span></span>`;
 }
 
@@ -210,7 +203,6 @@ function toDateInput(val) {
 
 async function submitComp(id) {
   try {
-    // Fetch the full competition first so we can send all required fields
     const existing = await getCompetition(id);
     if (!existing) { toast('Competition not found', 'error'); return; }
     const payload = {
@@ -236,7 +228,6 @@ async function submitComp(id) {
   }
 }
 
-// ── FIX: async so we can await getCompetition(editId) ──────
 async function openSubmissionForm(editId) {
   // Reset member list before opening
   membersList = [];
@@ -248,7 +239,6 @@ async function openSubmissionForm(editId) {
     const meData = await meRes.json();
     if (meData.success && meData.user) {
       freshMajor = meData.user.major || '';
-      // Sync localStorage so subsequent uses are correct
       const updated = { ...getCurrentUser(), ...meData.user };
       localStorage.setItem('ct_user', JSON.stringify(updated));
       user.major = freshMajor;
@@ -261,24 +251,49 @@ async function openSubmissionForm(editId) {
     e = await getCompetition(editId);
     if (e) {
       const leaderNim = e.leader_nim || e.leader || '';
-      // Prefer members_detail (has name/phone/email/major), fall back to plain NIM array
       const detail = e.members_detail && e.members_detail.length > 0 ? e.members_detail : [];
       membersList = (e.members || []).map(m => {
         const nim = typeof m === 'object' ? (m.nim || m.user_nim || '') : m;
         const d = detail.find(d => d.nim === nim) || {};
-        return { nim, name: d.name || m.name || '', phone: d.phone || m.phone || '', email: d.email || m.email || '', major: d.major || m.major || '' };
-      }).filter(m => m.nim && m.nim !== leaderNim); // exclude leader from member cards — leader has its own section
+        const rawMajor = d.major || m.major || '';
+        let memberMajorOnly = rawMajor;
+        let memberRegionOnly = '';
+        if (rawMajor.includes(' - ')) {
+          const parts = rawMajor.split(' - ');
+          memberMajorOnly = parts[0].trim();
+          memberRegionOnly = parts.slice(1).join(' - ').trim();
+        }
+        return { nim, name: d.name || m.name || '', phone: d.phone || m.phone || '', email: d.email || m.email || '', major: memberMajorOnly, region: memberRegionOnly };
+      }).filter(m => m.nim && m.nim !== leaderNim);
     }
   }
 
   const displayMajor = e?.major || freshMajor;
 
-  // Derive campus from the student's major to append region to leader's major display
-  let leaderCampus = '';
-  Object.entries(MAJORS_LIST).forEach(([campus, majors]) => {
-    if (majors.includes(displayMajor)) leaderCampus = campus.replace('BINUS @', '').replace('BINUS ', '');
-  });
-  const displayLeaderMajor = displayMajor && leaderCampus ? `${displayMajor} - ${leaderCampus}` : displayMajor;
+  // ── Build unique sorted major list and per-major region helper ──
+  const allMajors = [...new Set(Object.values(MAJORS_LIST).flat())].sort();
+
+  function regionsForMajor(maj) {
+    return Object.entries(MAJORS_LIST)
+      .filter(([, majors]) => majors.includes(maj))
+      .map(([campus]) => campus);
+  }
+
+  // ── Derive saved leader major and region ──
+  // Stored as "Major - Region" (new) or just "Major" (legacy)
+  let leaderMajorOnly = displayMajor || '';
+  let leaderRegionOnly = '';
+  if (e?.leader_major) {
+    const lm = e.leader_major;
+    if (lm.includes(' - ')) {
+      const parts = lm.split(' - ');
+      leaderMajorOnly = parts[0].trim();
+      leaderRegionOnly = parts.slice(1).join(' - ').trim();
+    } else {
+      leaderMajorOnly = lm.trim();
+    }
+  }
+  const initRegions = leaderMajorOnly ? regionsForMajor(leaderMajorOnly) : [];
 
   openModal(e ? 'Edit Submission' : 'New Competition Submission', `
   <style>
@@ -360,10 +375,19 @@ async function openSubmissionForm(editId) {
         <div class="form-group"><label>NIM *</label><input id="f-leader" value="${e?.leader_nim||e?.leader||user.nim||''}" type="text" inputmode="numeric" pattern="[0-9]*" oninput="this.value=this.value.replace(/[^0-9]/g,'')"></div>
         <div class="form-group"><label>Phone Number</label><input id="f-leader-phone" placeholder="e.g. 08123456789" type="tel" value="${e?.leader_phone||''}"></div>
         <div class="form-group"><label>Email</label><input id="f-leader-email" placeholder="e.g. name@email.com" type="email" value="${e?.leader_email||''}"></div>
-        <div class="form-group full"><label>Major</label>
-          <input id="f-leader-major" value="${displayLeaderMajor}" readonly
-            style="background:var(--surface2);cursor:not-allowed;opacity:.7">
-          <div style="font-size:11px;color:var(--text3);margin-top:4px">🔒 Automatically set from your profile major and cannot be changed.</div>
+        <div class="form-group">
+          <label>Major *</label>
+          <select id="f-leader-major" onchange="syncLeaderRegion()">
+            <option value="">— Select Major —</option>
+            ${allMajors.map(m => `<option value="${m}" ${m === leaderMajorOnly ? 'selected' : ''}>${m}</option>`).join('')}
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Region / Campus *</label>
+          <select id="f-leader-region">
+            <option value="">— Select Region —</option>
+            ${initRegions.map(r => `<option value="${r}" ${r === leaderRegionOnly ? 'selected' : ''}>${r}</option>`).join('')}
+          </select>
         </div>
       </div>
     </div>
@@ -399,9 +423,46 @@ async function openSubmissionForm(editId) {
    <button class="btn btn-primary" onclick="saveSubmission('submit','${editId||''}')">Submit</button>`);
 }
 
+// ── Sync region dropdown when major changes ───────────────
+// Repopulates Region with only the campuses that offer the
+// selected major, then resets the selection to blank.
+function syncLeaderRegion() {
+  const maj = document.getElementById('f-leader-major')?.value || '';
+  const regionSel = document.getElementById('f-leader-region');
+  if (!regionSel) return;
+  const regions = maj
+    ? Object.entries(MAJORS_LIST)
+        .filter(([, majors]) => majors.includes(maj))
+        .map(([campus]) => campus)
+    : [];
+  regionSel.innerHTML = '<option value="">— Select Region —</option>'
+    + regions.map(r => `<option value="${r}">${r}</option>`).join('');
+}
+
+// Repopulates a member's Region dropdown when their Major changes.
+function syncMemberRegion(i, maj) {
+  updateMember(i, 'major', maj);
+  updateMember(i, 'region', '');
+  const regionSel = document.getElementById(`mc-region-${i}`);
+  if (!regionSel) return;
+  const regions = maj
+    ? Object.entries(MAJORS_LIST)
+        .filter(([, majors]) => majors.includes(maj))
+        .map(([campus]) => campus)
+    : [];
+  regionSel.innerHTML = '<option value="">— Select Region —</option>'
+    + regions.map(r => `<option value="${r}">${r}</option>`).join('');
+}
+
 function renderMemberCards() {
   if (membersList.length === 0) return '<p style="color:var(--text3);font-size:13px;margin:10px 0 4px">No members added yet.</p>';
-  return membersList.map((m, i) => `
+  return membersList.map((m, i) => {
+    const regionsForMaj = m.major
+      ? Object.entries(MAJORS_LIST)
+          .filter(([, majors]) => majors.includes(m.major))
+          .map(([campus]) => campus)
+      : [];
+    return `
     <div class="member-card" id="mc-${i}">
       <span class="member-card-remove" onclick="removeMemberCard(${i})">×</span>
       <div class="member-card-grid">
@@ -409,20 +470,29 @@ function renderMemberCards() {
         <div><label>NIM</label><input placeholder="NIM..." value="${m.nim||''}" type="text" inputmode="numeric" pattern="[0-9]*" oninput="this.value=this.value.replace(/[^0-9]/g,'');updateMember(${i},'nim',this.value)"></div>
         <div><label>Phone Number</label><input placeholder="e.g. 08123456789" type="tel" value="${m.phone||''}" oninput="updateMember(${i},'phone',this.value)"></div>
         <div><label>Email</label><input placeholder="e.g. name@email.com" type="email" value="${m.email||''}" oninput="updateMember(${i},'email',this.value)"></div>
-        <div style="grid-column:1/-1"><label>Major</label>
-          <select onchange="updateMember(${i},'major',this.value)">
+        <div>
+          <label>Major</label>
+          <select id="mc-major-${i}" onchange="syncMemberRegion(${i},this.value)">
             <option value="">— Select Major —</option>
-            ${Object.entries(MAJORS_LIST).map(([campus, majors]) =>
-              `<optgroup label="${campus}">${majors.map(mj => `<option value="${mj}" ${m.major===mj?'selected':''}>${mj}</option>`).join('')}</optgroup>`
+            ${[...new Set(Object.values(MAJORS_LIST).flat())].sort().map(mj =>
+              `<option value="${mj}" ${m.major===mj?'selected':''}>${mj}</option>`
             ).join('')}
           </select>
         </div>
+        <div>
+          <label>Region / Campus</label>
+          <select id="mc-region-${i}" onchange="updateMember(${i},'region',this.value)">
+            <option value="">— Select Region —</option>
+            ${regionsForMaj.map(r => `<option value="${r}" ${m.region===r?'selected':''}>${r}</option>`).join('')}
+          </select>
+        </div>
       </div>
-    </div>`).join('');
+    </div>`;
+  }).join('');
 }
 
 function addMemberCard() {
-  membersList.push({ nim: '', name: '', phone: '', email: '', major: '' });
+  membersList.push({ nim: '', name: '', phone: '', email: '', major: '', region: '' });
   document.getElementById('member-cards').innerHTML = renderMemberCards();
 }
 
@@ -441,22 +511,35 @@ async function saveSubmission(action, existingId) {
   const files = document.getElementById('f-docs')?.files || [];
   const payload = {
     name,
-    organizer: document.getElementById('f-org').value,
-    level: document.getElementById('f-level').value,
-    category: document.getElementById('f-cat').value,
-    dateStart: document.getElementById('f-start').value,
-    dateEnd: document.getElementById('f-end').value,
-    members: membersList.map(m => m.nim).filter(Boolean),
-    membersDetail: membersList,
-    leader: document.getElementById('f-leader').value,
-    leaderName: document.getElementById('f-leader-name')?.value?.trim() || '',
-    leaderPhone: document.getElementById('f-leader-phone')?.value?.trim() || '',
-    leaderEmail: document.getElementById('f-leader-email')?.value?.trim() || '',
-    leaderMajor: document.getElementById('f-leader-major')?.value || '',
-    funding: Number(String(document.getElementById('f-funding').value).replace(/[.,]/g, '')) || 0,
+    organizer:    document.getElementById('f-org').value,
+    level:        document.getElementById('f-level').value,
+    category:     document.getElementById('f-cat').value,
+    dateStart:    document.getElementById('f-start').value,
+    dateEnd:      document.getElementById('f-end').value,
+    members:      membersList.map(m => m.nim).filter(Boolean),
+    membersDetail: membersList.map(m => ({
+      ...m,
+      major: m.major && m.region ? `${m.major} - ${m.region}` : m.major,
+    })),
+    leader:       document.getElementById('f-leader').value,
+    leaderName:   document.getElementById('f-leader-name')?.value?.trim() || '',
+    leaderPhone:  document.getElementById('f-leader-phone')?.value?.trim() || '',
+    leaderEmail:  document.getElementById('f-leader-email')?.value?.trim() || '',
+    // Combine major + region into "Major - Region" for storage
+    leaderMajor: (() => {
+      const maj = document.getElementById('f-leader-major')?.value?.trim() || '';
+      const reg = document.getElementById('f-leader-region')?.value?.trim() || '';
+      return maj && reg ? `${maj} - ${reg}` : maj;
+    })(),
+    funding:      Number(String(document.getElementById('f-funding').value).replace(/[.,]/g, '')) || 0,
     proposalLink: document.getElementById('f-link').value,
-    exemption: document.getElementById('f-disp').value === '1',
-    major: document.getElementById('f-major').value,
+    exemption:    document.getElementById('f-disp').value === '1',
+    // Use the leader's explicitly selected major as the submission's major.
+    // Fall back to the read-only profile field only if nothing was selected.
+    major: (() => {
+      const leaderMaj = document.getElementById('f-leader-major')?.value?.trim() || '';
+      return leaderMaj || document.getElementById('f-major').value;
+    })(),
     action,
   };
   try {
@@ -472,7 +555,6 @@ async function saveSubmission(action, existingId) {
 
 // BR-03: pass the full competition object so we can show deadline in the form header
 function openAchievementForm(id, comp) {
-  // Build a deadline notice string if applicable
   let deadlineNotice = '';
   if (comp && comp.achievement_deadline) {
     const days = daysUntil(comp.achievement_deadline);
