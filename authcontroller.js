@@ -42,7 +42,7 @@ function safeUser(u) {
 // ── POST /api/auth/register ───────────────────────────────
 async function register(req, res, next) {
   try {
-    const { name, email, password, nim, major, role = 'student' } = req.body;
+    const { name, email, password, nim, major, region, role = 'student' } = req.body;
 
     // PIC accounts must have a major — without one, getAll() would expose all submissions
     if (role === 'pic' && !major) {
@@ -61,8 +61,8 @@ async function register(req, res, next) {
     const id = uuidv4();
 
     await pool.query(
-      'INSERT INTO users (id, name, email, password, nim, major, role, color) VALUES (?,?,?,?,?,?,?,?)',
-      [id, name, email, hashedPassword, nim || null, major || null, role, color]
+      'INSERT INTO users (id, name, email, password, nim, major, region, role, color) VALUES (?,?,?,?,?,?,?,?,?)',
+      [id, name, email, hashedPassword, nim || null, major || null, region || null, role, color]
     );
 
     const [rows] = await pool.query('SELECT * FROM users WHERE id = ?', [id]);
@@ -199,7 +199,7 @@ async function refreshToken(req, res, next) {
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET + '_refresh');
     const [userRows] = await pool.query(
-      'SELECT id, name, email, nim, major, role, color FROM users WHERE id = ? AND is_active = 1',
+      'SELECT id, name, email, nim, major, region, role, color FROM users WHERE id = ? AND is_active = 1',
       [decoded.id]
     );
     if (!userRows.length) return res.status(401).json({ success: false, message: 'User not found' });
@@ -239,14 +239,15 @@ async function getMe(req, res) {
 // ── PATCH /api/auth/profile ───────────────────────────────
 async function updateProfile(req, res, next) {
   try {
-    const { name, nim, major, color } = req.body;
+    const { name, nim, major, region, color } = req.body;
     const fields = [];
     const values = [];
 
-    if (name !== undefined)  { fields.push('name = ?');  values.push(name); }
-    if (nim   !== undefined)  { fields.push('nim = ?');   values.push(nim || null); }
-    if (major !== undefined)  { fields.push('major = ?'); values.push(major || null); }
-    if (color !== undefined)  { fields.push('color = ?'); values.push(color); }
+    if (name   !== undefined)  { fields.push('name = ?');   values.push(name); }
+    if (nim    !== undefined)  { fields.push('nim = ?');    values.push(nim || null); }
+    if (major  !== undefined)  { fields.push('major = ?');  values.push(major || null); }
+    if (region !== undefined)  { fields.push('region = ?'); values.push(region || null); }
+    if (color  !== undefined)  { fields.push('color = ?');  values.push(color); }
 
     if (!fields.length) return res.status(400).json({ success: false, message: 'Nothing to update' });
 
@@ -254,7 +255,7 @@ async function updateProfile(req, res, next) {
     await pool.query(`UPDATE users SET ${fields.join(', ')} WHERE id = ?`, values);
 
     const [rows] = await pool.query(
-      'SELECT id, name, email, nim, major, role, color, avatar_url FROM users WHERE id = ?',
+      'SELECT id, name, email, nim, major, region, role, color, avatar_url FROM users WHERE id = ?',
       [req.user.id]
     );
     res.json({ success: true, user: rows[0] });
