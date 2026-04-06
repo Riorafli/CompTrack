@@ -109,11 +109,16 @@ async function getAll(req, res, next) {
       params.push(user.id);
     }
 
-    // PIC: scope to their major only.
-    // LOWER() makes it case-insensitive. If PIC has no major, they see all.
+    // PIC: scope to their major only. If PIC has no major, they see all.
     if (user.role === 'pic' && user.major) {
-      query += " AND LOWER(c.major) = LOWER(?)";
-      params.push(user.major);
+      const picMajor = user.major.trim();
+      console.log(`[PIC filter] major="${picMajor}"`);
+      // Bidirectional prefix match:
+      // 1. comp.major = picMajor exactly
+      // 2. comp.major starts with picMajor + " -" (more specific variant)
+      // 3. picMajor starts with comp.major + " -" (PIC is more specific than comp)
+      query += " AND (LOWER(c.major) = LOWER(?) OR LOWER(c.major) LIKE LOWER(?) OR LOWER(?) LIKE CONCAT(LOWER(c.major), ' -%'))";
+      params.push(picMajor, picMajor + ' -%', picMajor);
     }
 
     if (status)  { query += ' AND c.status = ?';             params.push(status); }
@@ -127,7 +132,10 @@ async function getAll(req, res, next) {
     const [rows] = await pool.query(query, params);
     const competitions = await Promise.all(rows.map(buildCompetition));
 
-    res.json({ success: true, data: competitions, total: competitions.length });
+    // Temporary debug — remove after confirming fix
+    const debug = user.role === 'pic' ? { pic_major: user.major, pic_region: user.region, total_found: rows.length } : undefined;
+
+    res.json({ success: true, data: competitions, total: competitions.length, ...(debug && { debug }) });
   } catch (err) {
     next(err);
   }
@@ -147,7 +155,9 @@ async function getOne(req, res, next) {
     }
     // PICs can only view competitions that match their major (or if PIC has no major, they see all)
     if (req.user.role === 'pic' && req.user.major && rows[0].major) {
-      if (rows[0].major.toLowerCase() !== req.user.major.toLowerCase()) {
+      const picMajor  = req.user.major.trim().toLowerCase();
+      const compMajor = rows[0].major.toLowerCase();
+      if (compMajor !== picMajor && !compMajor.startsWith(picMajor + ' -') && !picMajor.startsWith(compMajor + ' -')) {
         return res.status(403).json({ success: false, message: 'Access denied' });
       }
     }
@@ -231,10 +241,17 @@ async function create(req, res, next) {
       // plus superadmins who always see everything
       let picRecipients;
       if (resolvedMajor) {
+        // Match PICs whose major equals the submission major exactly OR is the base prefix.
+        // e.g. PIC major "Computer Science" should match submission major "Computer Science"
+        // and also "Computer Science - Global Class" etc.
+        const baseMajor = resolvedMajor.includes(' - ')
+          ? resolvedMajor.split(' - ')[0].trim()
+          : resolvedMajor;
         const [matchedPics] = await pool.query(
           `SELECT id FROM users WHERE role = 'pic' AND is_active = 1
-           AND (LOWER(major) = LOWER(?) OR major IS NULL OR major = '')`,
-          [resolvedMajor]
+           AND (LOWER(major) = LOWER(?) OR LOWER(major) = LOWER(?)
+                OR major IS NULL OR major = '')`,
+          [resolvedMajor, baseMajor]
         );
         const [superadmins] = await pool.query(
           `SELECT id FROM users WHERE role = 'superadmin' AND is_active = 1`
@@ -333,10 +350,14 @@ async function update(req, res, next) {
       // Notify only PICs whose major matches, plus superadmins
       let picRecipients;
       if (resolvedMajor) {
+        const baseMajor = resolvedMajor.includes(' - ')
+          ? resolvedMajor.split(' - ')[0].trim()
+          : resolvedMajor;
         const [matchedPics] = await pool.query(
           `SELECT id FROM users WHERE role = 'pic' AND is_active = 1
-           AND (LOWER(major) = LOWER(?) OR major IS NULL OR major = '')`,
-          [resolvedMajor]
+           AND (LOWER(major) = LOWER(?) OR LOWER(major) = LOWER(?)
+                OR major IS NULL OR major = '')`,
+          [resolvedMajor, baseMajor]
         );
         const [superadmins] = await pool.query(
           `SELECT id FROM users WHERE role = 'superadmin' AND is_active = 1`
