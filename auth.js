@@ -17,7 +17,7 @@ async function authenticate(req, res, next) {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     // Attach user from DB to ensure account is still active
     const [rows] = await pool.query(
-      'SELECT id, name, email, nim, major, region, role, color, avatar_url FROM users WHERE id = ? AND is_active = 1',
+      'SELECT id, name, email, nim, major, region, role, color, avatar_url, created_at, updated_at FROM users WHERE id = ? AND is_active = 1',
       [decoded.id]
     );
     if (!rows.length) {
