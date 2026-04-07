@@ -320,11 +320,19 @@
         <input class="form-input" id="modal-current-major" disabled style="width:100%;box-sizing:border-box;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
       </div>
     </div>
-    <div class="form-group" style="margin-top:14px">
-      <label class="form-label">Requested Major *</label>
-      <select class="form-input" id="modal-new-major">
-        <option value="" disabled selected>Select new major…</option>
-      </select>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:14px">
+      <div class="form-group" style="margin-bottom:0">
+        <label class="form-label">New Region / Campus *</label>
+        <select class="form-input" id="modal-new-campus" onchange="onCampusChange()">
+          <option value="" disabled selected>Select campus…</option>
+        </select>
+      </div>
+      <div class="form-group" style="margin-bottom:0">
+        <label class="form-label">New Major *</label>
+        <select class="form-input" id="modal-new-major" disabled>
+          <option value="" disabled selected>Select major…</option>
+        </select>
+      </div>
     </div>
     <div class="form-group">
       <label class="form-label">Reason *</label>
@@ -400,38 +408,44 @@ if (user) {
 }
 
 async function initProfile() {
-  // Apply any superadmin-approved major change
-  const userId = user.id || user.userId;
-  const approvedMajor = localStorage.getItem(`ct_user_major_${userId}`);
-  if (approvedMajor && approvedMajor !== user.major) {
-    user.major = approvedMajor;
-    localStorage.setItem('ct_user', JSON.stringify(user));
-    localStorage.removeItem(`ct_user_major_${userId}`);
-  }
+  // ── Fetch fresh user data from the database ───────────
+  let fresh = null;
+  try {
+    const res = await apiFetch('/auth/me');
+    if (res.ok) {
+      const data = await res.json();
+      fresh = data.user;
+      // Sync updated user into localStorage so tokens stay consistent
+      setCurrentUser({ ...getCurrentUser(), ...fresh });
+    }
+  } catch { /* fall through to cached user */ }
+
+  // Use fresh DB data if available, otherwise fall back to cached
+  const u = fresh || user;
 
   // Fill hero
-  document.getElementById('hero-name').textContent  = user.name;
-  document.getElementById('hero-email').textContent = user.email;
-  document.getElementById('hero-avatar').textContent = user.name.charAt(0).toUpperCase();
-  document.getElementById('hero-avatar').style.background = user.color || '#4f8aff';
+  document.getElementById('hero-name').textContent   = u.name;
+  document.getElementById('hero-email').textContent  = u.email;
+  document.getElementById('hero-avatar').textContent = u.name.charAt(0).toUpperCase();
+  document.getElementById('hero-avatar').style.background = u.color || '#4f8aff';
 
   // Fill inputs
-  document.getElementById('inp-name').value  = user.name;
-  document.getElementById('inp-email').value = user.email;
-  document.getElementById('inp-major-display').value = user.major || '—';
-  document.getElementById('inp-nim').value   = user.nim || '';
+  document.getElementById('inp-name').value  = u.name;
+  document.getElementById('inp-email').value = u.email;
+  document.getElementById('inp-major-display').value = u.major || '—';
+  document.getElementById('inp-nim').value   = u.nim || '';
 
   // Role badge
-  const roleLabel = ROLE_LABELS[user.role] || user.role;
+  const roleLabel = ROLE_LABELS[u.role] || u.role;
   document.getElementById('role-badge').textContent = `RBAC – ${roleLabel.toUpperCase()}`;
   document.getElementById('role-pill').textContent  = roleLabel.toUpperCase();
 
   // Hide student-only fields for non-students
-  if (user.role !== 'student') {
+  if (u.role !== 'student') {
     document.getElementById('student-fields').style.display = 'none';
     document.getElementById('ov-nim-row').style.display = 'none';
   }
-  if (!['student','pic','faculty'].includes(user.role)) {
+  if (!['student','pic','faculty'].includes(u.role)) {
     document.getElementById('ov-major-row').style.display = 'none';
     document.getElementById('ov-region-row').style.display = 'none';
   }
@@ -439,20 +453,23 @@ async function initProfile() {
   // Avatar color picker
   const colorsWrap = document.getElementById('avatar-colors');
   colorsWrap.innerHTML = AVATAR_COLORS.map(c => `
-    <div class="color-dot ${c === (user.color||'#4f8aff') ? 'selected' : ''}"
+    <div class="color-dot ${c === (u.color||'#4f8aff') ? 'selected' : ''}"
          style="background:${c}" onclick="selectColor('${c}',this)"
          title="${c}"></div>
   `).join('');
 
-  // Account overview
-  document.getElementById('ov-major').textContent   = user.major  || '—';
-  document.getElementById('ov-region').textContent  = user.region || '—';
-  document.getElementById('ov-nim').textContent     = user.nim    || '—';
-  document.getElementById('ov-joined').textContent  = user.createdAt ? formatDate(user.createdAt) : '—';
-  document.getElementById('ov-updated').textContent = user.updatedAt ? formatDate(user.updatedAt) : '—';
+  // Account overview — all values come straight from the DB
+  document.getElementById('ov-id').textContent      = u.id || u.userId || '—';
+  document.getElementById('ov-email').textContent   = u.email || '—';
+  document.getElementById('ov-role').textContent    = ROLE_LABELS[u.role] || u.role || '—';
+  document.getElementById('ov-major').textContent   = u.major  || '—';
+  document.getElementById('ov-region').textContent  = u.region || '—';
+  document.getElementById('ov-nim').textContent     = u.nim    || '—';
+  document.getElementById('ov-joined').textContent  = formatDate(u.created_at || u.createdAt) || '—';
+  document.getElementById('ov-updated').textContent = formatDate(u.updated_at || u.updatedAt) || '—';
 
   // Also update the major display input for students
-  document.getElementById('inp-major-display').value = user.major || '—';
+  document.getElementById('inp-major-display').value = u.major || '—';
 
   // Permissions
   const perms = PERMISSIONS[user.role] || [];
@@ -469,26 +486,18 @@ async function initProfile() {
     renderMajorChangeStatus();
   }
 
-  // Populate major modal dropdown — skip optgroups that would be empty
-  const sel = document.getElementById('modal-new-major');
-
   // Populate major change modal with current values
   const currentMajorClean = user.major || '';
   document.getElementById('modal-current-campus').value = user.region || '—';
   document.getElementById('modal-current-major').value  = currentMajorClean || '—';
 
-  Object.entries(MAJORS_BY_CAMPUS).forEach(([campus, majors]) => {
-    // Include ALL majors except the student's exact current one
-    const opts = majors.filter(m => m.toLowerCase() !== currentMajorClean.toLowerCase());
-    if (opts.length === 0) return;
-    const group = document.createElement('optgroup');
-    group.label = campus;
-    opts.forEach(m => {
-      const opt = document.createElement('option');
-      opt.value = opt.textContent = m;
-      group.appendChild(opt);
-    });
-    sel.appendChild(group);
+  // Populate campus dropdown
+  const campusSel = document.getElementById('modal-new-campus');
+  campusSel.innerHTML = '<option value="" disabled selected>Select campus…</option>';
+  Object.keys(MAJORS_BY_CAMPUS).forEach(campus => {
+    const opt = document.createElement('option');
+    opt.value = opt.textContent = campus;
+    campusSel.appendChild(opt);
   });
 }
 
@@ -549,7 +558,7 @@ function renderMajorChangeStatus() {
     wrap.innerHTML = `
       <div class="major-pending-banner">
         ⏳ <strong>Request Pending</strong> — You've requested a change to
-        <strong>${mcr.requestedMajor}</strong>.<br>
+        <strong>${mcr.requestedMajor}</strong>${mcr.requestedCampus ? ' at <strong>' + mcr.requestedCampus + '</strong>' : ''}.<br>
         <span style="font-size:11px;opacity:.8">Submitted ${formatDate(mcr.submittedAt, true)} · Awaiting Super Admin review</span>
       </div>
       <button class="btn btn-ghost btn-sm" style="margin-top:8px" onclick="cancelMajorRequest()">Withdraw Request</button>`;
@@ -582,10 +591,30 @@ function renderMajorChangeStatus() {
   }
 }
 
+function onCampusChange() {
+  const campus = document.getElementById('modal-new-campus').value;
+  const majorSel = document.getElementById('modal-new-major');
+  majorSel.innerHTML = '<option value="" disabled selected>Select major…</option>';
+  majorSel.disabled = !campus;
+  if (!campus) return;
+  const majors = MAJORS_BY_CAMPUS[campus] || [];
+  const currentMajorClean = (user.major || '').toLowerCase();
+  majors.forEach(m => {
+    // Skip if it is the student's exact current major AND the campus also matches
+    if (m.toLowerCase() === currentMajorClean && campus === (user.region || '')) return;
+    const opt = document.createElement('option');
+    opt.value = opt.textContent = m;
+    majorSel.appendChild(opt);
+  });
+}
+
 function openMajorModal() {
   document.getElementById('major-modal-overlay').style.display = 'flex';
   document.getElementById('modal-reason').value = '';
-  document.getElementById('modal-new-major').value = '';
+  document.getElementById('modal-new-campus').value = '';
+  const majorSel = document.getElementById('modal-new-major');
+  majorSel.innerHTML = '<option value="" disabled selected>Select major…</option>';
+  majorSel.disabled = true;
 }
 
 function closeMajorModal(e) {
@@ -594,15 +623,15 @@ function closeMajorModal(e) {
 }
 
 function submitMajorChangeRequest() {
-  const newMajor = document.getElementById('modal-new-major').value;
-  const reason   = document.getElementById('modal-reason').value.trim();
+  const newCampus = document.getElementById('modal-new-campus').value;
+  const newMajor  = document.getElementById('modal-new-major').value;
+  const reason    = document.getElementById('modal-reason').value.trim();
 
-  if (!newMajor) { toast('Please select a new major', 'error'); return; }
-  if (!reason)   { toast('Please provide a reason', 'error'); return; }
+  if (!newCampus) { toast('Please select a campus / region', 'error'); return; }
+  if (!newMajor)  { toast('Please select a new major', 'error'); return; }
+  if (!reason)    { toast('Please provide a reason', 'error'); return; }
 
-  // Resolve current campus from major
-  const currentParsed = parseMajorCampus(user.major || '');
-  const currentCampus = currentParsed.campus || '—';
+  const currentCampus = user.region || '—';
 
   const mcr = {
     id: 'MCR-' + Date.now(),
@@ -612,6 +641,7 @@ function submitMajorChangeRequest() {
     studentEmail:   user.email,
     currentCampus,
     currentMajor:   user.major,
+    requestedCampus: newCampus,
     requestedMajor: newMajor,
     reason,
     status:         'pending',
@@ -636,7 +666,7 @@ function submitMajorChangeRequest() {
     type: 'major_change_request',
     icon: '🏛️',
     title: 'Major Change Request',
-    message: `${user.name} (${user.nim || user.email}) has requested a major change from "${user.major}" to "${newMajor}".`,
+    message: `${user.name} (${user.nim || user.email}) has requested a major change from "${user.major}" to "${newMajor}" (${newCampus}).`,
     href: 'approvals.html',
     createdAt: new Date().toISOString(),
     read: false,
@@ -682,10 +712,20 @@ async function saveProfile() {
     });
     if (res.ok) {
       const data = await res.json();
-      // Sync the full updated user back into localStorage so major/nim/name are always fresh
+      // Sync the full updated user back from DB into localStorage
       const updated = { ...getCurrentUser(), ...data.user };
-      localStorage.setItem('ct_user', JSON.stringify(updated));
-      document.getElementById('hero-name').textContent = name;
+      setCurrentUser(updated);
+      // Refresh all displayed fields from the DB response
+      document.getElementById('hero-name').textContent       = updated.name;
+      document.getElementById('ov-id').textContent           = updated.id || '—';
+      document.getElementById('ov-email').textContent        = updated.email || '—';
+      document.getElementById('ov-role').textContent         = ROLE_LABELS[updated.role] || updated.role || '—';
+      document.getElementById('ov-major').textContent        = updated.major  || '—';
+      document.getElementById('ov-region').textContent       = updated.region || '—';
+      document.getElementById('ov-nim').textContent          = updated.nim    || '—';
+      document.getElementById('ov-joined').textContent       = formatDate(updated.created_at || updated.createdAt) || '—';
+      document.getElementById('ov-updated').textContent      = formatDate(updated.updated_at || updated.updatedAt) || '—';
+      document.getElementById('inp-major-display').value     = updated.major  || '—';
       toast('Profile updated ✓', 'success');
     } else {
       const err = await res.json().catch(() => ({}));
@@ -696,12 +736,22 @@ async function saveProfile() {
   }
 }
 
-function selectColor(color, el) {
+async function selectColor(color, el) {
   document.querySelectorAll('.color-dot').forEach(d => d.classList.remove('selected'));
   el.classList.add('selected');
   document.getElementById('hero-avatar').style.background = color;
-  const u = getCurrentUser();
-  if (u) { u.color = color; localStorage.setItem('ct_user', JSON.stringify(u)); }
+  // Persist color to the database
+  try {
+    const res = await apiFetch('/auth/profile', {
+      method: 'PATCH',
+      body: JSON.stringify({ color }),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      setCurrentUser({ ...getCurrentUser(), ...data.user });
+      document.getElementById('ov-updated').textContent = formatDate(data.user.updated_at || data.user.updatedAt) || '—';
+    }
+  } catch { /* color shown optimistically; will sync on next load */ }
 }
 
 // ══════════════════════════════════════════════════
@@ -745,22 +795,80 @@ function switchTab(name, btn) {
   if (name === 'activity') { document.getElementById('tab-activity').classList.add('active'); loadActivity(); }
 }
 
+// Icon + color map for activity types
+const ACTIVITY_META = {
+  'Login':            { icon: '🔑', color: '#4f8aff' },
+  'Logout':           { icon: '🚪', color: '#8b9cb6' },
+  'Account Registered':{ icon: '✨', color: '#00c896' },
+  'Profile Updated':  { icon: '✏️', color: '#7c5cfc' },
+  'Password Changed': { icon: '🔒', color: '#ff8c42' },
+  'Competition':      { icon: '🏆', color: '#ffb547' },
+};
+
+function activityMeta(action) {
+  return ACTIVITY_META[action] || { icon: '📋', color: 'var(--accent)' };
+}
+
 async function loadActivity() {
   const list = document.getElementById('activity-list');
+  list.innerHTML = '<div style="color:var(--text3);font-size:13px">Loading activity…</div>';
+
   try {
-    const res = await apiFetch('/competitions/my');
-    if (!res.ok) throw new Error();
-    const data = await res.json();
-    const comps = (data.data || data || []).slice(0, 8);
-    list.innerHTML = comps.length ? comps.map(c => `
-      <div class="activity-item">
-        <div class="activity-dot"></div>
-        <div>
-          <div class="activity-desc">Submitted <strong>${c.name}</strong></div>
-          <div class="activity-time">${formatDate(c.submittedAt || c.created_at, true)} · Status: ${c.status}</div>
-        </div>
-      </div>`).join('') : '<div style="color:var(--text3);font-size:13px">No activity yet</div>';
-  } catch {
+    // Fetch profile activity log + competition submissions in parallel
+    const [actRes, compRes] = await Promise.all([
+      apiFetch('/auth/my-activity'),
+      apiFetch('/competitions/my'),
+    ]);
+
+    const events = [];
+
+    // Profile / account events from activity_log table
+    if (actRes.ok) {
+      const actData = await actRes.json();
+      (actData.data || []).forEach(row => {
+        events.push({
+          type:   'log',
+          action: row.action,
+          detail: row.detail,
+          date:   row.created_at,
+        });
+      });
+    }
+
+    // Competition submission events
+    if (compRes.ok) {
+      const compData = await compRes.json();
+      (compData.data || compData || []).forEach(c => {
+        events.push({
+          type:   'competition',
+          action: 'Competition',
+          detail: `Submitted <strong>${c.name}</strong> · ${statusLabel(c.status)}`,
+          date:   c.submittedAt || c.submitted_at || c.created_at,
+        });
+      });
+    }
+
+    if (!events.length) {
+      list.innerHTML = '<div style="color:var(--text3);font-size:13px">No activity yet</div>';
+      return;
+    }
+
+    // Sort newest first
+    events.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+    list.innerHTML = events.slice(0, 20).map(ev => {
+      const meta = activityMeta(ev.action);
+      return `
+        <div class="activity-item">
+          <div class="activity-dot" style="background:${meta.color}"></div>
+          <div>
+            <div class="activity-desc">${meta.icon} ${ev.detail || ev.action}</div>
+            <div class="activity-time">${formatDate(ev.date, true)}</div>
+          </div>
+        </div>`;
+    }).join('');
+
+  } catch (e) {
     list.innerHTML = '<div style="color:var(--text3);font-size:13px">Could not load activity</div>';
   }
 }
