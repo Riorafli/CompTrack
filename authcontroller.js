@@ -199,7 +199,7 @@ async function refreshToken(req, res, next) {
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET + '_refresh');
     const [userRows] = await pool.query(
-      'SELECT id, name, email, nim, major, region, role, color FROM users WHERE id = ? AND is_active = 1',
+      'SELECT id, name, email, nim, major, region, role, color, avatar_url, created_at, updated_at FROM users WHERE id = ? AND is_active = 1',
       [decoded.id]
     );
     if (!userRows.length) return res.status(401).json({ success: false, message: 'User not found' });
@@ -255,9 +255,20 @@ async function updateProfile(req, res, next) {
     await pool.query(`UPDATE users SET ${fields.join(', ')} WHERE id = ?`, values);
 
     const [rows] = await pool.query(
-      'SELECT id, name, email, nim, major, region, role, color, avatar_url FROM users WHERE id = ?',
+      'SELECT id, name, email, nim, major, region, role, color, avatar_url, created_at, updated_at FROM users WHERE id = ?',
       [req.user.id]
     );
+
+    // Build a human-readable detail of what changed
+    const changed = [];
+    if (name   !== undefined) changed.push('name');
+    if (nim    !== undefined) changed.push('NIM');
+    if (major  !== undefined) changed.push('major');
+    if (region !== undefined) changed.push('campus/region');
+    if (color  !== undefined) changed.push('avatar color');
+    const detail = changed.length ? `Updated: ${changed.join(', ')}` : 'Profile updated';
+    await logActivity(req.user.id, req.user, 'Profile Updated', detail, req.ip).catch(() => {});
+
     res.json({ success: true, user: rows[0] });
   } catch (err) {
     next(err);
@@ -280,10 +291,26 @@ async function changePassword(req, res, next) {
     }
     const hashed = await bcrypt.hash(newPassword, 10);
     await pool.query('UPDATE users SET password = ? WHERE id = ?', [hashed, req.user.id]);
+    await logActivity(req.user.id, req.user, 'Password Changed', 'Account password was changed', req.ip).catch(() => {});
     res.json({ success: true, message: 'Password changed successfully' });
   } catch (err) {
     next(err);
   }
 }
 
-module.exports = { register, login, googleLogin, refreshToken, logout, getMe, updateProfile, changePassword };
+// ── GET /api/auth/my-activity ─────────────────────────────
+async function getMyActivity(req, res, next) {
+  try {
+    const [rows] = await pool.query(
+      `SELECT action, detail, created_at
+         FROM activity_log
+        WHERE user_id = ?
+        ORDER BY created_at DESC
+        LIMIT 50`,
+      [req.user.id]
+    );
+    res.json({ success: true, data: rows });
+  } catch (err) { next(err); }
+}
+
+module.exports = { register, login, googleLogin, refreshToken, logout, getMe, updateProfile, changePassword, getMyActivity };
