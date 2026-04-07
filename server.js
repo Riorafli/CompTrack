@@ -102,6 +102,7 @@ authR.post('/logout',         auth, authCtrl.logout);
 authR.get('/me',              auth, authCtrl.getMe);
 authR.patch('/profile',       auth, authCtrl.updateProfile);
 authR.post('/change-password',auth, authCtrl.changePassword);
+authR.get('/my-activity',      auth, authCtrl.getMyActivity);
 app.use('/api/auth', authR);
 
 // ── COMPETITIONS ──────────────────────────────────────────
