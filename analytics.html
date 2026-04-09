@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CompTrack — Analytics</title>
+<link rel="stylesheet" href="style.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  .analytics-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+  .chart-card {
+    background: var(--surface);
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius);
+    padding: 24px;
+  }
+  .chart-card.full-width { grid-column: 1 / -1; }
+  .chart-card-title {
+    font-size: 13px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--text2);
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .chart-wrap { position: relative; }
+  .kpi-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .kpi-table th {
+    text-align: left; padding: 8px 12px;
+    font-size: 11px; text-transform: uppercase; letter-spacing: 0.07em;
+    color: var(--text3); font-weight: 700; border-bottom: 2px solid var(--border);
+  }
+  .kpi-table th:not(:first-child) { text-align: right; }
+  .kpi-table td {
+    padding: 10px 12px;
+    border-bottom: 1px solid rgba(204,221,233,0.45);
+    color: var(--text2);
+  }
+  .kpi-table td:not(:first-child) { text-align: right; font-variant-numeric: tabular-nums; }
+  .kpi-table td:first-child { font-weight: 600; color: var(--text); }
+  .kpi-table tr:last-child td { border-bottom: none; }
+  .kpi-rate-bar {
+    display: inline-block; height: 6px; border-radius: 3px;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    vertical-align: middle; margin-right: 6px;
+  }
+  .chart-skeleton {
+    height: 260px;
+    background: linear-gradient(90deg, var(--surface2) 25%, var(--surface3) 50%, var(--surface2) 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.4s infinite;
+    border-radius: 8px;
+  }
+  @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+  .chart-summary {
+    display: flex; gap: 16px; margin-top: 14px; flex-wrap: wrap;
+  }
+  .chart-summary-item {
+    font-size: 12px; color: var(--text3);
+    display: flex; align-items: center; gap: 6px;
+  }
+  .legend-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  @media (max-width: 768px) {
+    .analytics-grid { grid-template-columns: 1fr; }
+    .chart-card.full-width { grid-column: 1; }
+  }
+</style>
+</head>
+<body>
+<div class="layout">
+  <div id="sidebar-wrap"></div>
+  <main class="main">
+    <div class="topbar"><h1 class="page-title">Analytics & KPIs</h1></div>
+    <div class="content">
+      <div class="stats-grid" id="kpi-cards">
+        <div class="stat-card blue"><div class="stat-label">Total Competitions</div><div class="stat-value">—</div></div>
+        <div class="stat-card green"><div class="stat-label">Winners 🥇</div><div class="stat-value">—</div></div>
+        <div class="stat-card warn"><div class="stat-label">Total Funding</div><div class="stat-value">—</div></div>
+        <div class="stat-card teal"><div class="stat-label">Completion Rate</div><div class="stat-value">—</div></div>
+      </div>
+      <div class="analytics-grid" id="charts-grid">
+        <div class="chart-card full-width"><div class="chart-skeleton"></div></div>
+        <div class="chart-card"><div class="chart-skeleton" style="height:220px"></div></div>
+        <div class="chart-card"><div class="chart-skeleton" style="height:220px"></div></div>
+      </div>
+    </div>
+  </main>
+</div>
+<script src="app.js"></script>
+<script>
+Chart.defaults.font.family = "system-ui, sans-serif";
+Chart.defaults.color = '#7a96a8';
+Chart.defaults.plugins.legend.display = false;
+
+const COLORS = {
+  blue:'#2e86ab', indigo:'#5c6bc0', teal:'#26a69a',
+  orange:'#f4a261', rose:'#e05c5c', green:'#2cb67d',
+  purple:'#9c6ec5', yellow:'#f0c048'
+};
+const STATUS_COLORS = {
+  draft:'#7a96a8', submitted:'#f4a261', pic_approved:'#5c6bc0',
+  faculty_approved:'#26a69a', completed:'#2cb67d', pic_rejected:'#e05c5c',
+  faculty_rejected:'#c0486a', letter_generated:'#2e86ab'
+};
+const LEVEL_COLORS = { national:'#2e86ab', international:'#5c6bc0', regional:'#26a69a' };
+
+const TIP = {
+  plugins: {
+    tooltip: {
+      backgroundColor:'#1a2b38', titleColor:'#fff',
+      bodyColor:'rgba(255,255,255,0.78)',
+      borderColor:'rgba(255,255,255,0.08)', borderWidth:1,
+      cornerRadius:8, padding:10
+    }
+  }
+};
+
+const user = requireAuth(['faculty','superadmin']);
+if (user) {
+  initSidebar('analytics.html', user);
+  (async () => {
+    const stats = await getAnalytics();
+    const { totals, byMajor: byMajorArr, byLevel, byStatus, monthly } = stats;
+
+    const totalFunding = Number(totals.total_funding || 0);
+    const winners      = Number(totals.winners || 0);
+    const completed    = Number(totals.completed || 0);
+    const total        = Number(totals.total || 0);
+    const completionPct = total > 0 ? Math.round(completed / total * 100) : 0;
+
+    // KPI Cards
+    document.getElementById('kpi-cards').innerHTML = `
+      <div class="stat-card blue">
+        <div class="stat-label">Total Competitions</div>
+        <div class="stat-value">${total}</div>
+        <div class="stat-sub">All time submissions</div>
+      </div>
+      <div class="stat-card green">
+        <div class="stat-label">Winners 🥇</div>
+        <div class="stat-value">${winners}</div>
+        <div class="stat-sub">First place awards</div>
+      </div>
+      <div class="stat-card warn">
+        <div class="stat-label">Total Funding</div>
+        <div class="stat-value">${formatFunding(totalFunding)}</div>
+        <div class="stat-sub">IDR requested (active)</div>
+      </div>
+      <div class="stat-card teal">
+        <div class="stat-label">Completion Rate</div>
+        <div class="stat-value">${completionPct}%</div>
+        <div class="stat-sub">Reported achievements</div>
+      </div>
+    `;
+
+    // Chart grid HTML
+    document.getElementById('charts-grid').innerHTML = `
+      <div class="chart-card full-width">
+        <div class="chart-card-title">📈 Monthly Submission Trend</div>
+        <div class="chart-wrap" style="height:220px"><canvas id="chartMonthly"></canvas></div>
+        <div class="chart-summary" id="monthly-summary"></div>
+      </div>
+
+      <div class="chart-card">
+        <div class="chart-card-title">🔵 Submissions by Status</div>
+        <div class="chart-wrap" style="height:220px;display:flex;align-items:center;justify-content:center">
+          <canvas id="chartStatus"></canvas>
+        </div>
+        <div class="chart-summary" id="status-legend" style="margin-top:16px;flex-wrap:wrap;gap:8px 16px"></div>
+      </div>
+
+      <div class="chart-card">
+        <div class="chart-card-title">🌐 Competitions by Level</div>
+        <div class="chart-wrap" style="height:220px"><canvas id="chartLevel"></canvas></div>
+        <div class="chart-summary" id="level-summary"></div>
+      </div>
+
+      <div class="chart-card">
+        <div class="chart-card-title">🏛️ Submissions by Major</div>
+        <div class="chart-wrap" style="height:260px"><canvas id="chartMajor"></canvas></div>
+      </div>
+
+      <div class="chart-card">
+        <div class="chart-card-title">💰 Funding by Level</div>
+        <div class="chart-wrap" style="height:220px;display:flex;align-items:center;justify-content:center">
+          <canvas id="chartFunding"></canvas>
+        </div>
+        <div class="chart-summary" id="funding-summary" style="margin-top:16px"></div>
+      </div>
+
+      <div class="chart-card full-width">
+        <div class="chart-card-title">📊 KPI per Major</div>
+        <div id="kpi-major-table"></div>
+      </div>
+    `;
+
+    // ── 1. Monthly Trend — Line chart with gradient fill ──────────────────
+    {
+      const labels = monthly.map(m => {
+        const [y, mo] = (m.month || '').split('-');
+        return mo ? new Date(y, mo-1).toLocaleString('default',{month:'short',year:'2-digit'}) : m.month;
+      });
+      const data = monthly.map(m => Number(m.count));
+      const peak = Math.max(...data, 0);
+      const peakIdx = data.indexOf(peak);
+
+      const ctx = document.getElementById('chartMonthly').getContext('2d');
+      const grad = ctx.createLinearGradient(0, 0, 0, 220);
+      grad.addColorStop(0, 'rgba(46,134,171,0.22)');
+      grad.addColorStop(1, 'rgba(46,134,171,0)');
+
+      new Chart(ctx, {
+        type: 'line',
+        data: { labels, datasets: [{
+          data, borderColor: COLORS.blue, borderWidth: 2.5,
+          backgroundColor: grad, fill: true, tension: 0.4,
+          pointRadius: data.map((_,i) => i===peakIdx ? 6 : 3),
+          pointBackgroundColor: data.map((_,i) => i===peakIdx ? COLORS.orange : COLORS.blue),
+          pointBorderColor: '#fff', pointBorderWidth: 2,
+        }]},
+        options: {
+          ...TIP, responsive: true, maintainAspectRatio: false,
+          scales: {
+            x: { grid:{color:'rgba(204,221,233,0.35)'}, ticks:{font:{size:11}} },
+            y: { beginAtZero:true, grid:{color:'rgba(204,221,233,0.35)'}, ticks:{precision:0,font:{size:11}} }
+          },
+          plugins: { ...TIP.plugins, legend:{display:false} }
+        }
+      });
+
+      const total12 = data.reduce((s,v)=>s+v, 0);
+      const avg = data.length ? (total12/data.length).toFixed(1) : 0;
+      document.getElementById('monthly-summary').innerHTML = `
+        <div class="chart-summary-item"><span class="legend-dot" style="background:${COLORS.blue}"></span>12-month total: <strong style="color:var(--text);margin-left:4px">${total12}</strong></div>
+        <div class="chart-summary-item"><span class="legend-dot" style="background:${COLORS.orange}"></span>Peak: <strong style="color:var(--text);margin-left:4px">${peak} submissions</strong></div>
+        <div class="chart-summary-item"><span class="legend-dot" style="background:${COLORS.teal}"></span>Monthly avg: <strong style="color:var(--text);margin-left:4px">${avg}</strong></div>
+      `;
+    }
+
+    // ── 2. Status — Doughnut ──────────────────────────────────────────────
+    {
+      const order = ['completed','faculty_approved','pic_approved','submitted','draft','pic_rejected','faculty_rejected','letter_generated'];
+      const active = order.filter(s => byStatus.find(b=>b.status===s && b.count>0));
+      const labels = active.map(s => statusLabel(s));
+      const data   = active.map(s => Number((byStatus.find(b=>b.status===s)||{}).count||0));
+      const colors = active.map(s => STATUS_COLORS[s]||'#aaa');
+
+      new Chart(document.getElementById('chartStatus'), {
+        type: 'doughnut',
+        data: { labels, datasets:[{
+          data, backgroundColor: colors,
+          borderColor:'var(--surface)', borderWidth:3, hoverOffset:6
+        }]},
+        options: {
+          ...TIP, responsive:true, maintainAspectRatio:false, cutout:'62%',
+          plugins: {
+            ...TIP.plugins, legend:{display:false},
+            tooltip:{
+              ...TIP.plugins.tooltip,
+              callbacks:{label:ctx=>` ${ctx.label}: ${ctx.parsed} (${total?Math.round(ctx.parsed/total*100):0}%)`}
+            }
+          }
+        }
+      });
+
+      document.getElementById('status-legend').innerHTML = active.map((s,i)=>
+        `<div class="chart-summary-item">
+          <span class="legend-dot" style="background:${colors[i]}"></span>
+          <span>${labels[i]}</span>
+          <strong style="color:var(--text);margin-left:4px">${data[i]}</strong>
+        </div>`
+      ).join('');
+    }
+
+    // ── 3. Level — Vertical bar ───────────────────────────────────────────
+    {
+      const levels = ['national','international','regional'];
+      const labels = levels.map(l => l.charAt(0).toUpperCase()+l.slice(1));
+      const data   = levels.map(l => Number((byLevel.find(b=>b.level===l)||{}).count||0));
+      const colors = levels.map(l => LEVEL_COLORS[l]);
+
+      new Chart(document.getElementById('chartLevel'), {
+        type: 'bar',
+        data: { labels, datasets:[{
+          data,
+          backgroundColor: colors.map(c=>c+'cc'),
+          borderColor: colors, borderWidth:2,
+          borderRadius:6, borderSkipped:false,
+        }]},
+        options: {
+          ...TIP, responsive:true, maintainAspectRatio:false,
+          plugins:{...TIP.plugins, legend:{display:false}},
+          scales:{
+            x:{grid:{display:false}, ticks:{font:{size:12}}},
+            y:{beginAtZero:true, grid:{color:'rgba(204,221,233,0.4)'}, ticks:{precision:0,font:{size:11}}}
+          }
+        }
+      });
+
+      document.getElementById('level-summary').innerHTML = levels.map((l,i)=>
+        `<div class="chart-summary-item">
+          <span class="legend-dot" style="background:${colors[i]}"></span>
+          <span style="text-transform:capitalize">${l}</span>
+          <strong style="color:var(--text);margin-left:4px">${data[i]}</strong>
+        </div>`
+      ).join('');
+    }
+
+    // ── 4. Major — Horizontal bar ─────────────────────────────────────────
+    {
+      const sorted  = [...byMajorArr].sort((a,b)=>b.count-a.count).slice(0,8);
+      const labels  = sorted.map(r => r.major||'Unknown');
+      const data    = sorted.map(r => Number(r.count));
+      const palette = [COLORS.blue,COLORS.indigo,COLORS.teal,COLORS.green,COLORS.orange,COLORS.purple,COLORS.yellow,COLORS.rose];
+
+      new Chart(document.getElementById('chartMajor'), {
+        type: 'bar',
+        data: { labels, datasets:[{
+          data,
+          backgroundColor: palette.map(c=>c+'bb'),
+          borderColor: palette, borderWidth:2,
+          borderRadius:5, borderSkipped:false,
+        }]},
+        options: {
+          ...TIP, indexAxis:'y', responsive:true, maintainAspectRatio:false,
+          plugins:{...TIP.plugins, legend:{display:false}},
+          scales:{
+            x:{beginAtZero:true, grid:{color:'rgba(204,221,233,0.4)'}, ticks:{precision:0,font:{size:11}}},
+            y:{grid:{display:false}, ticks:{font:{size:11}}}
+          }
+        }
+      });
+    }
+
+    // ── 5. Funding — Doughnut ─────────────────────────────────────────────
+    {
+      const levels  = ['national','international','regional'];
+      const funding = levels.map(l => Number((byLevel.find(b=>b.level===l)||{}).funding||0));
+      const colors  = levels.map(l => LEVEL_COLORS[l]);
+      const labels  = levels.map(l => l.charAt(0).toUpperCase()+l.slice(1));
+
+      new Chart(document.getElementById('chartFunding'), {
+        type: 'doughnut',
+        data: { labels, datasets:[{
+          data: funding,
+          backgroundColor: colors.map(c=>c+'cc'),
+          borderColor: colors, borderWidth:2, hoverOffset:6,
+        }]},
+        options: {
+          ...TIP, responsive:true, maintainAspectRatio:false, cutout:'58%',
+          plugins: {
+            ...TIP.plugins, legend:{display:false},
+            tooltip:{
+              ...TIP.plugins.tooltip,
+              callbacks:{label:ctx=>` ${ctx.label}: IDR ${formatFunding(ctx.parsed)}`}
+            }
+          }
+        }
+      });
+
+      document.getElementById('funding-summary').innerHTML = levels.map((l,i)=>
+        `<div class="chart-summary-item">
+          <span class="legend-dot" style="background:${colors[i]}"></span>
+          <span style="text-transform:capitalize">${l}</span>
+          <strong style="color:var(--text);margin-left:4px">IDR ${formatFunding(funding[i])}</strong>
+        </div>`
+      ).join('');
+    }
+
+    // ── 6. KPI per-major table ────────────────────────────────────────────
+    {
+      const rows = [...byMajorArr].sort((a,b)=>b.count-a.count);
+      document.getElementById('kpi-major-table').innerHTML = rows.length ? `
+        <table class="kpi-table">
+          <thead>
+            <tr>
+              <th>Major</th>
+              <th>Submissions</th>
+              <th>Funding Requested</th>
+              <th>Share of Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows.map(r => {
+              const pct = total > 0 ? (r.count/total*100).toFixed(1) : 0;
+              const barW = total > 0 ? Math.round(r.count/total*80) : 0;
+              return `<tr>
+                <td>${r.major||'—'}</td>
+                <td>${r.count}</td>
+                <td>IDR ${formatFunding(Number(r.funding||0))}</td>
+                <td>
+                  <span class="kpi-rate-bar" style="width:${barW}px"></span>
+                  <span style="font-size:12px;color:var(--text3)">${pct}%</span>
+                </td>
+              </tr>`;
+            }).join('')}
+          </tbody>
+        </table>
+      ` : '<p style="color:var(--text3);font-size:13px">No data available.</p>';
+    }
+
+  })();
+}
+</script>
+</body>
+</html>

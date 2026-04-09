@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CompTrack — Sign In / Sign Up</title>
+<link rel="stylesheet" href="style.css">
+<style>
+*, *::before, *::after { box-sizing: border-box; }
+
+body {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  background: #e8f2f8;
+  font-family: var(--font-sans);
+}
+
+/* ── LEFT PANEL ── */
+.auth-panel-left {
+  position: relative;
+  background: linear-gradient(155deg, #1b3a52 0%, #1e4b6d 30%, #1d5c7a 58%, #1a6a78 78%, #1f9b8a 100%);
+  border-right: none;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 48px;
+  overflow: hidden;
+}
+
+.auth-panel-left::before {
+  content: '';
+  position: absolute;
+  width: 560px; height: 560px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(126,207,222,0.18) 0%, transparent 65%);
+  top: -140px; left: -140px;
+  pointer-events: none;
+}
+.auth-panel-left::after {
+  content: '';
+  position: absolute;
+  width: 420px; height: 420px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(46,134,171,0.22) 0%, transparent 65%);
+  bottom: -90px; right: -90px;
+  pointer-events: none;
+}
+
+.left-logo {
+  display: flex; align-items: center; gap: 12px; z-index: 1;
+}
+.left-logo-icon {
+  width: 44px; height: 44px;
+  background: linear-gradient(135deg, #7ecfde, #a5c8e8);
+  border-radius: 12px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 22px;
+}
+.left-logo-text {
+  font-family: var(--font-sans);
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: #fff;
+}
+
+.left-hero { z-index: 1; }
+.left-hero-title {
+  font-family: var(--font-sans);
+  font-size: 36px;
+  font-weight: 800;
+  line-height: 1.15;
+  letter-spacing: -0.03em;
+  color: #fff;
+  margin-bottom: 16px;
+}
+.left-hero-title span { color: #7ecfde; }
+.left-hero-sub {
+  color: rgba(255,255,255,0.8);
+  font-size: 14px;
+  line-height: 1.7;
+  max-width: 340px;
+}
+
+.left-features { z-index: 1; display: flex; flex-direction: column; gap: 10px; }
+.feature-item {
+  display: flex; align-items: flex-start; gap: 14px;
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.14);
+  border-radius: 12px;
+  padding: 14px 16px;
+  backdrop-filter: blur(8px);
+  transition: all 0.25s ease;
+  position: relative;
+  overflow: hidden;
+  animation: featureSlideIn 0.5s ease both;
+}
+.feature-item:nth-child(1) { animation-delay: 0.1s; }
+.feature-item:nth-child(2) { animation-delay: 0.2s; }
+.feature-item:nth-child(3) { animation-delay: 0.3s; }
+@keyframes featureSlideIn {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.feature-item::before {
+  content: '';
+  position: absolute; top: 0; left: 0; right: 0; height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.25), transparent);
+}
+.feature-item:hover {
+  background: rgba(255,255,255,0.14);
+  border-color: rgba(255,255,255,0.24);
+  transform: translateX(5px);
+}
+.feature-icon {
+  width: 40px; height: 40px; border-radius: 10px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center; font-size: 19px;
+}
+.feature-body { flex: 1; }
+.feature-text-title { font-size: 13.5px; font-weight: 700; color: #fff; margin-bottom: 3px; letter-spacing: 0.01em; }
+.feature-text-sub { font-size: 11.5px; color: rgba(255,255,255,0.6); line-height: 1.5; }
+
+/* ── RIGHT PANEL ── */
+.auth-panel-right {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 40px;
+  overflow-y: auto;
+  background:
+    radial-gradient(ellipse at 100% 0%,   rgba(46,134,171,0.14) 0%, transparent 52%),
+    radial-gradient(ellipse at 0%   100%, rgba(92,107,192,0.10) 0%, transparent 52%),
+    radial-gradient(ellipse at 50%  50%,  rgba(38,166,154,0.06) 0%, transparent 60%),
+    #e8f2f8;
+}
+
+.auth-card {
+  width: 100%;
+  max-width: 400px;
+  animation: fadeUp .4s ease;
+}
+@keyframes fadeUp { from { opacity:0; transform:translateY(20px); } to { opacity:1; transform:translateY(0); } }
+
+.auth-card-title {
+  font-family: var(--font-sans);
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  margin-bottom: 6px;
+  color: #1a2b38;
+}
+.auth-card-sub {
+  color: #3d5465;
+  font-size: 13px;
+  margin-bottom: 28px;
+}
+
+
+/* ── FORM ── */
+.auth-form .form-group { margin-bottom: 14px; }
+.auth-form label { font-size: 12px; color: #3d5465; font-weight: 600; display: block; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.07em; }
+.auth-form input {
+  width: 100%; padding: 10px 12px;
+  background: #ffffff; border: 1.5px solid #ccdde9;
+  border-radius: var(--radius-sm); color: #1a2b38;
+  font-family: var(--font-sans); font-size: 13.5px;
+  outline: none; transition: all 0.2s;
+  box-shadow: 0 1px 3px rgba(46,134,171,0.06);
+}
+.auth-form input:focus { border-color: #2e86ab; box-shadow: 0 0 0 3px rgba(46,134,171,0.1); }
+.auth-form input.error { border-color: var(--danger); }
+
+.input-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+.password-wrap { position: relative; }
+.password-wrap input { padding-right: 40px; }
+.password-toggle {
+  position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
+  background: none; border: none; cursor: pointer; color: #7a96a8;
+  font-size: 14px; padding: 2px; line-height: 1;
+}
+.password-toggle:hover { color: #2e86ab; }
+
+.field-error { font-size: 11px; color: var(--danger); margin-top: 4px; }
+
+.btn-auth {
+  width: 100%; padding: 12px;
+  background: linear-gradient(135deg, #2e86ab, #5c6bc0);
+  border: none; border-radius: var(--radius-sm);
+  color: #fff; font-family: var(--font-sans);
+  font-size: 14px; font-weight: 600;
+  cursor: pointer; transition: all 0.2s;
+  margin-top: 4px;
+  box-shadow: 0 4px 14px rgba(46,134,171,0.3);
+}
+.btn-auth:hover { opacity: 0.9; transform: translateY(-1px); box-shadow: 0 6px 18px rgba(46,134,171,0.4); }
+.btn-auth:active { transform: translateY(0); }
+.btn-auth:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+.auth-switch {
+  text-align: center; margin-top: 20px;
+  font-size: 13px; color: #7a96a8;
+}
+.auth-switch a {
+  color: #2e86ab; text-decoration: none; font-weight: 500;
+  cursor: pointer;
+}
+.auth-switch a:hover { text-decoration: underline; }
+
+/* Role select */
+.role-select-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 4px; }
+.role-option {
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  padding: 10px 8px; border-radius: var(--radius-sm);
+  border: 1.5px solid #ccdde9; background: #ffffff;
+  cursor: pointer; transition: all 0.15s; text-align: center;
+  box-shadow: 0 1px 3px rgba(46,134,171,0.06);
+}
+.role-option:hover { border-color: #2e86ab; background: #f0f7fb; }
+.role-option.selected { border-color: #2e86ab; background: rgba(46,134,171,0.08); }
+.role-option-icon { font-size: 20px; }
+.role-option-label { font-size: 11px; font-weight: 600; color: #3d5465; }
+.role-option.selected .role-option-label { color: #2e86ab; }
+
+/* ── ACCOUNT INFO ── */
+
+/* ── STEP INDICATOR (signup) ── */
+.steps {
+  display: flex; align-items: center; gap: 0;
+  margin-bottom: 28px;
+}
+.step {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 12px; color: #7a96a8; font-weight: 500;
+}
+.step-num {
+  width: 24px; height: 24px; border-radius: 50%;
+  border: 1.5px solid #ccdde9; background: #ffffff;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 600; flex-shrink: 0; color: #7a96a8;
+}
+.step.active .step-num { border-color: #2e86ab; background: #2e86ab; color: #fff; }
+.step.done .step-num { border-color: #2cb67d; background: #2cb67d; color: #fff; }
+.step.active { color: #1a2b38; }
+.step.done { color: #7a96a8; }
+.step-line { flex: 1; height: 1px; background: #ccdde9; margin: 0 6px; }
+
+@media (max-width: 768px) {
+  body { grid-template-columns: 1fr; }
+  .auth-panel-left { display: none; }
+  .auth-panel-right { padding: 32px 24px; }
+}
+</style>
+</head>
+<body>
+
+<!-- LEFT HERO PANEL -->
+<div class="auth-panel-left">
+  <div class="left-logo">
+    <div class="left-logo-icon">🏆</div>
+    <span class="left-logo-text">CompTrack</span>
+  </div>
+
+  <div class="left-hero">
+    <div class="left-hero-title">Track every<br><span>competition</span><br>from start to win</div>
+    <p class="left-hero-sub">The all-in-one platform for managing student competition submissions, approvals, exemption letters, and achievement reports.</p>
+  </div>
+
+  <div class="left-features">
+    <div class="feature-item">
+      <div class="feature-icon" style="background:rgba(126,207,222,0.25)">📋</div>
+      <div class="feature-body">
+        <div class="feature-text-title">Streamlined Submissions</div>
+        <div class="feature-text-sub">Submit and track competitions through a clear approval pipeline</div>
+        <div style="margin-top:7px;display:flex;gap:6px;flex-wrap:wrap">
+          <span style="background:rgba(126,207,222,0.18);border:1px solid rgba(126,207,222,0.35);color:#a8e6f0;font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;letter-spacing:0.05em">REAL-TIME</span>
+          <span style="background:rgba(126,207,222,0.18);border:1px solid rgba(126,207,222,0.35);color:#a8e6f0;font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;letter-spacing:0.05em">MULTI-STAGE</span>
+        </div>
+      </div>
+    </div>
+    <div class="feature-item">
+      <div class="feature-icon" style="background:rgba(44,182,125,0.25)">✅</div>
+      <div class="feature-body">
+        <div class="feature-text-title">Multi-level Approvals</div>
+        <div class="feature-text-sub">PIC and Faculty review with automatic exemption letter generation</div>
+        <div style="margin-top:7px;display:flex;gap:6px;flex-wrap:wrap">
+          <span style="background:rgba(44,182,125,0.18);border:1px solid rgba(44,182,125,0.35);color:#86e8c4;font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;letter-spacing:0.05em">AUTO-GENERATE</span>
+          <span style="background:rgba(44,182,125,0.18);border:1px solid rgba(44,182,125,0.35);color:#86e8c4;font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;letter-spacing:0.05em">2-STEP REVIEW</span>
+        </div>
+      </div>
+    </div>
+    <div class="feature-item">
+      <div class="feature-icon" style="background:rgba(92,107,192,0.25)">📈</div>
+      <div class="feature-body">
+        <div class="feature-text-title">Analytics & Export</div>
+        <div class="feature-text-sub">Real-time KPIs, funding summaries, and exportable reports</div>
+        <div style="margin-top:7px;display:flex;gap:6px;flex-wrap:wrap">
+          <span style="background:rgba(92,107,192,0.18);border:1px solid rgba(92,107,192,0.4);color:#b4b8f0;font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;letter-spacing:0.05em">KPI DASHBOARD</span>
+          <span style="background:rgba(92,107,192,0.18);border:1px solid rgba(92,107,192,0.4);color:#b4b8f0;font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;letter-spacing:0.05em">PDF EXPORT</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- RIGHT AUTH PANEL -->
+<div class="auth-panel-right">
+  <div class="auth-card" id="auth-card">
+    <!-- Rendered by JS -->
+  </div>
+</div>
+
+<div class="toast-container" id="toast-container"></div>
+<script src="app.js"></script>
+<script>
+// Backend API handles all data — no localStorage init needed
+
+// ── VIEW STATE ──────────────────────────────────────────
+let currentView = 'login'; // 'login' | 'signup' | 'signup2'
+let signupStep1Data = null;
+
+function render() {
+  if (currentView === 'login')   renderLogin();
+  if (currentView === 'signup')  renderSignup1();
+  if (currentView === 'signup2') renderSignup2();
+}
+
+// ── LOGIN VIEW ──────────────────────────────────────────
+function renderLogin() {
+  document.getElementById('auth-card').innerHTML = `
+  <div class="auth-card-title">Welcome back</div>
+  <p class="auth-card-sub">Sign in to your CompTrack account</p>
+
+  <div class="auth-form">
+    <div class="form-group">
+      <label>Institutional Email</label>
+      <input type="email" id="login-email" placeholder="name@university.ac.id"
+        onkeydown="if(event.key==='Enter') doLogin()">
+    </div>
+    <div class="form-group">
+      <label>Password</label>
+      <div class="password-wrap">
+        <input type="password" id="login-pass" placeholder="••••••••"
+          onkeydown="if(event.key==='Enter') doLogin()">
+        <button class="password-toggle" onclick="togglePassword('login-pass',this)" type="button">👁</button>
+      </div>
+    </div>
+    <button class="btn-auth" onclick="doLogin()">Sign In →</button>
+  </div>
+
+  <div class="auth-switch">
+    Don't have an account? <a onclick="currentView='signup';render()">Create one</a>
+  </div>
+  `;
+}
+
+// ── SIGNUP STEP 1 ────────────────────────────────────────
+function renderSignup1() {
+  document.getElementById('auth-card').innerHTML = `
+  <div class="steps">
+    <div class="step active"><div class="step-num">1</div> Account</div>
+    <div class="step-line"></div>
+    <div class="step"><div class="step-num">2</div> Profile</div>
+  </div>
+
+  <div class="auth-card-title">Create account</div>
+  <p class="auth-card-sub">Join CompTrack with your institutional email</p>
+
+  <div class="auth-form">
+    <div class="form-group">
+      <label>Full Name *</label>
+      <input type="text" id="s-name" placeholder="e.g. Aliyah Rahmawati"
+        value="${signupStep1Data?.name||''}">
+    </div>
+    <div class="form-group">
+      <label>Institutional Email *</label>
+      <input type="email" id="s-email" placeholder="name@university.ac.id"
+        value="${signupStep1Data?.email||''}">
+    </div>
+    <div class="form-group">
+      <label>Password *</label>
+      <div class="password-wrap">
+        <input type="password" id="s-pass" placeholder="Min. 8 characters">
+        <button class="password-toggle" onclick="togglePassword('s-pass',this)" type="button">👁</button>
+      </div>
+      <div class="field-error" id="err-pass"></div>
+    </div>
+    <div class="form-group">
+      <label>Confirm Password *</label>
+      <div class="password-wrap">
+        <input type="password" id="s-pass2" placeholder="Re-enter password"
+          onkeydown="if(event.key==='Enter') goToStep2()">
+        <button class="password-toggle" onclick="togglePassword('s-pass2',this)" type="button">👁</button>
+      </div>
+      <div class="field-error" id="err-pass2"></div>
+    </div>
+    <button class="btn-auth" onclick="goToStep2()">Continue →</button>
+  </div>
+
+  <div class="auth-switch">
+    Already have an account? <a onclick="currentView='login';render()">Sign in</a>
+  </div>`;
+}
+
+// ── SIGNUP STEP 2 ────────────────────────────────────────
+const CAMPUS_MAJORS = {
+  'BINUS @Kemanggisan': [
+    'Computer Science',
+    'CS - Statistics',
+    'CS - Mathematics',
+    'Game Application & Technology',
+    'Cyber Security',
+    'Artificial Intelligence',
+    'Data Science',
+  ],
+  'BINUS @Alam Sutera': [
+    'Computer Science',
+    'CS - Global Class',
+    'Cyber Security',
+    'Artificial Intelligence',
+  ],
+  'BINUS @Bekasi': [
+    'CS - Software Engineering',
+  ],
+  'BINUS @Bandung': [
+    'Computer Science - Bandung',
+  ],
+  'BINUS @Malang': [
+    'Computer Science - Malang',
+  ],
+  'BINUS @Semarang': [
+    'Computer Science - Semarang',
+  ],
+  'BINUS @Medan': [
+    'Computer Science - Medan',
+  ],
+};
+
+function updateMajorOptions() {
+  const region = document.getElementById('s-region')?.value;
+  const majorSelect = document.getElementById('s-major');
+  if (!majorSelect) return;
+
+  const majors = CAMPUS_MAJORS[region] || [];
+  majorSelect.innerHTML = `<option value="" disabled selected>Select your major...</option>`
+    + majors.map(m => `<option value="${m}">${m}</option>`).join('');
+  majorSelect.disabled = !region;
+  majorSelect.style.opacity = region ? '1' : '0.5';
+  document.getElementById('err-major').textContent = '';
+}
+
+function renderSignup2() {
+  const campuses = Object.keys(CAMPUS_MAJORS);
+
+  document.getElementById('auth-card').innerHTML = `
+  <div class="steps">
+    <div class="step done"><div class="step-num">✓</div> Account</div>
+    <div class="step-line"></div>
+    <div class="step active"><div class="step-num">2</div> Profile</div>
+  </div>
+
+  <div class="auth-card-title">Your profile</div>
+  <p class="auth-card-sub">Tell us a bit more so we can set up your account</p>
+
+  <div class="auth-form">
+    <div class="form-group">
+      <label>NIM / Student ID *</label>
+      <input type="text" id="s-nim" placeholder="e.g. 20210001" value="${signupStep1Data?.nim||''}"
+        oninput="this.classList.remove('error');document.getElementById('err-nim').textContent=''">
+      <div class="field-error" id="err-nim"></div>
+    </div>
+
+    <div class="form-group">
+      <label>BINUS Campus / Region *</label>
+      <select id="s-region" style="width:100%;padding:10px 12px;background:var(--surface2);border:1.5px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-family:var(--font-sans);font-size:13.5px;outline:none"
+        onchange="this.style.borderColor='var(--border)';document.getElementById('err-region').textContent='';updateMajorOptions()">
+        <option value="" disabled selected>Select your campus...</option>
+        ${campuses.map(c => `<option value="${c}">${c}</option>`).join('')}
+      </select>
+      <div class="field-error" id="err-region"></div>
+    </div>
+
+    <div class="form-group">
+      <label>Major / Department *</label>
+      <select id="s-major" disabled style="width:100%;padding:10px 12px;background:var(--surface2);border:1.5px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-family:var(--font-sans);font-size:13.5px;outline:none;opacity:0.5"
+        onchange="this.style.borderColor='var(--border)';document.getElementById('err-major').textContent=''">
+        <option value="" disabled selected>Select your campus first...</option>
+      </select>
+      <div class="field-error" id="err-major"></div>
+    </div>
+
+    <button class="btn-auth" onclick="doRegister()">Create Account →</button>
+    <button style="width:100%;margin-top:8px;padding:10px;background:none;border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text2);font-family:var(--font-sans);font-size:13px;cursor:pointer;transition:all .2s"
+      onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'"
+      onclick="currentView='signup';render()">← Back</button>
+  </div>`;
+}
+
+// ── ACTIONS ─────────────────────────────────────────────
+function togglePassword(inputId, btn) {
+  const inp = document.getElementById(inputId);
+  if (inp.type === 'password') { inp.type = 'text'; btn.textContent = '🙈'; }
+  else { inp.type = 'password'; btn.textContent = '👁'; }
+}
+
+function goToStep2() {
+  const name  = document.getElementById('s-name')?.value?.trim();
+  const email = document.getElementById('s-email')?.value?.trim();
+  const pass  = document.getElementById('s-pass')?.value;
+  const pass2 = document.getElementById('s-pass2')?.value;
+
+  let valid = true;
+
+  if (!name) { toast('Full name is required', 'error'); return; }
+  if (!email || !email.includes('@')) { toast('Please enter a valid email', 'error'); return; }
+
+  const errPass  = document.getElementById('err-pass');
+  const errPass2 = document.getElementById('err-pass2');
+  errPass.textContent = '';
+  errPass2.textContent = '';
+
+  if (!pass || pass.length < 8) {
+    errPass.textContent = 'Password must be at least 8 characters';
+    document.getElementById('s-pass').classList.add('error');
+    valid = false;
+  }
+  if (pass !== pass2) {
+    errPass2.textContent = 'Passwords do not match';
+    document.getElementById('s-pass2').classList.add('error');
+    valid = false;
+  }
+  if (!valid) return;
+
+  signupStep1Data = { name, email, password: pass };
+  currentView = 'signup2';
+  render();
+}
+
+async function doRegister() {
+  const nim    = document.getElementById('s-nim')?.value?.trim() || '';
+  const major  = document.getElementById('s-major')?.value       || '';
+  const region = document.getElementById('s-region')?.value      || '';
+
+  const errNim    = document.getElementById('err-nim');
+  const errMajor  = document.getElementById('err-major');
+  const errRegion = document.getElementById('err-region');
+  if (errNim)    errNim.textContent    = '';
+  if (errMajor)  errMajor.textContent  = '';
+  if (errRegion) errRegion.textContent = '';
+
+  let valid = true;
+
+  if (!nim) {
+    if (errNim) errNim.textContent = 'NIM / Student ID is required';
+    document.getElementById('s-nim')?.classList.add('error');
+    valid = false;
+  }
+  if (!major) {
+    if (errMajor) errMajor.textContent = 'Please select your major';
+    const majorSelect = document.getElementById('s-major');
+    if (majorSelect) majorSelect.style.borderColor = 'var(--danger)';
+    valid = false;
+  }
+  if (!region) {
+    if (errRegion) errRegion.textContent = 'Please select your campus';
+    const regionSelect = document.getElementById('s-region');
+    if (regionSelect) regionSelect.style.borderColor = 'var(--danger)';
+    valid = false;
+  }
+
+  if (!valid) return;
+
+  showSSOOverlay('Setting up your account...');
+  try {
+    const result = await registerUser({
+      ...signupStep1Data,
+      nim, major, region, role: 'student'
+    });
+    if (!result.ok) {
+      hideSSOOverlay();
+      toast(result.error, 'error');
+      return;
+    }
+    window.location.href = 'dashboard.html';
+  } catch (err) {
+    hideSSOOverlay();
+    toast(err.message || 'Registration failed', 'error');
+  }
+}
+
+async function doLogin() {
+  const email = document.getElementById('login-email')?.value?.trim();
+  const pass  = document.getElementById('login-pass')?.value;
+  if (!email || !pass) { toast('Please enter your email and password', 'error'); return; }
+
+  const btn = document.querySelector('.btn-auth');
+  if (btn) { btn.disabled = true; btn.textContent = 'Signing in...'; }
+
+  try {
+    await loginWithEmail(email, pass);
+    window.location.href = 'dashboard.html';
+  } catch (err) {
+    if (btn) { btn.disabled = false; btn.textContent = 'Sign In →'; }
+    toast(err.message || 'Invalid email or password', 'error');
+  }
+}
+
+// ── INIT ────────────────────────────────────────────────
+render();
+</script>
+</body>
+</html>
