@@ -437,22 +437,29 @@ const CAMPUS_MAJORS = {
   ],
 };
 
-function updateMajorOptions() {
-  const region = document.getElementById('s-region')?.value;
-  const majorSelect = document.getElementById('s-major');
-  if (!majorSelect) return;
+function getAllMajors() {
+  const all = new Set();
+  Object.values(CAMPUS_MAJORS).forEach(majors => majors.forEach(m => all.add(m)));
+  return [...all].sort();
+}
 
-  const majors = CAMPUS_MAJORS[region] || [];
-  majorSelect.innerHTML = `<option value="" disabled selected>Select your major...</option>`
-    + majors.map(m => `<option value="${m}">${m}</option>`).join('');
-  majorSelect.disabled = !region;
-  majorSelect.style.opacity = region ? '1' : '0.5';
-  document.getElementById('err-major').textContent = '';
+function updateCampusOptions() {
+  const major = document.getElementById('s-major')?.value;
+  const regionSelect = document.getElementById('s-region');
+  if (!regionSelect) return;
+
+  const campuses = Object.entries(CAMPUS_MAJORS)
+    .filter(([, majors]) => majors.includes(major))
+    .map(([campus]) => campus);
+
+  regionSelect.innerHTML = `<option value="" disabled selected>Select your campus...</option>`
+    + campuses.map(c => `<option value="${c}">${c}</option>`).join('');
+  regionSelect.disabled = !major;
+  regionSelect.style.opacity = major ? '1' : '0.5';
+  document.getElementById('err-region').textContent = '';
 }
 
 function renderSignup2() {
-  const campuses = Object.keys(CAMPUS_MAJORS);
-
   document.getElementById('auth-card').innerHTML = `
   <div class="steps">
     <div class="step done"><div class="step-num">✓</div> Account</div>
@@ -472,22 +479,22 @@ function renderSignup2() {
     </div>
 
     <div class="form-group">
-      <label>BINUS Campus / Region *</label>
-      <select id="s-region" style="width:100%;padding:10px 12px;background:var(--surface2);border:1.5px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-family:var(--font-sans);font-size:13.5px;outline:none"
-        onchange="this.style.borderColor='var(--border)';document.getElementById('err-region').textContent='';updateMajorOptions()">
-        <option value="" disabled selected>Select your campus...</option>
-        ${campuses.map(c => `<option value="${c}">${c}</option>`).join('')}
+      <label>Major / Department *</label>
+      <select id="s-major" style="width:100%;padding:10px 12px;background:var(--surface2);border:1.5px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-family:var(--font-sans);font-size:13.5px;outline:none"
+        onchange="this.style.borderColor='var(--border)';document.getElementById('err-major').textContent='';updateCampusOptions()">
+        <option value="" disabled selected>Select your major...</option>
+        ${getAllMajors().map(m => `<option value="${m}">${m}</option>`).join('')}
       </select>
-      <div class="field-error" id="err-region"></div>
+      <div class="field-error" id="err-major"></div>
     </div>
 
     <div class="form-group">
-      <label>Major / Department *</label>
-      <select id="s-major" disabled style="width:100%;padding:10px 12px;background:var(--surface2);border:1.5px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-family:var(--font-sans);font-size:13.5px;outline:none;opacity:0.5"
-        onchange="this.style.borderColor='var(--border)';document.getElementById('err-major').textContent=''">
-        <option value="" disabled selected>Select your campus first...</option>
+      <label>BINUS Campus / Region *</label>
+      <select id="s-region" disabled style="width:100%;padding:10px 12px;background:var(--surface2);border:1.5px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-family:var(--font-sans);font-size:13.5px;outline:none;opacity:0.5"
+        onchange="this.style.borderColor='var(--border)';document.getElementById('err-region').textContent=''">
+        <option value="" disabled selected>Select your major first...</option>
       </select>
-      <div class="field-error" id="err-major"></div>
+      <div class="field-error" id="err-region"></div>
     </div>
 
     <button class="btn-auth" onclick="doRegister()">Create Account →</button>
