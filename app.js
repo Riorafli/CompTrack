@@ -432,9 +432,49 @@ function relativeTime(dateStr) {
 // APPROVAL ACTIONS (used by multiple pages)
 // ═══════════════════════════════════════════════════════════
 
-async function doApprove(id, type) {
-  // Prevent double-click — disable every approve button on the page
-  document.querySelectorAll('[onclick*="doApprove"]').forEach(b => { b.disabled = true; b.style.opacity = '0.6'; });
+function doApprove(id, type) {
+  const label = type === 'pic' ? 'PIC' : 'Faculty';
+  const icon  = type === 'pic' ? '✅' : '🎓';
+
+  // Try to grab the competition name from the cache or the current modal title
+  let compName = '';
+  if (_competitionsCache) {
+    const cached = _competitionsCache.find(c => c.id === id);
+    if (cached) compName = cached.name;
+  }
+  if (!compName) {
+    const modalTitle = document.getElementById('modal-title');
+    if (modalTitle && modalTitle.textContent && modalTitle.textContent !== 'Loading…') {
+      compName = modalTitle.textContent;
+    }
+  }
+
+  const nameHtml = compName
+    ? `<div style="font-size:13px;color:var(--text);background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:10px 14px;margin:12px 0;font-weight:600">${icon} ${compName}</div>`
+    : '';
+
+  const extraNote = type === 'faculty'
+    ? `<div style="font-size:12px;color:var(--text3);margin-top:8px">This will notify the student and ${id.includes('exemption') ? 'generate an exemption letter.' : 'update the submission status to Faculty Approved.'}</div>`
+    : `<div style="font-size:12px;color:var(--text3);margin-top:8px">This will forward the submission to Faculty for final review.</div>`;
+
+  openModal(
+    `Confirm ${label} Approval`,
+    `<div style="text-align:center;padding:8px 0 4px">
+      <div style="font-size:40px;margin-bottom:8px">${icon}</div>
+      <div style="font-size:15px;color:var(--text);font-weight:500">Approve this submission?</div>
+      ${nameHtml}
+      <div style="font-size:13px;color:var(--text2)">You are granting <strong>${label} Approval</strong> for this competition submission.</div>
+      ${extraNote}
+    </div>`,
+    `<button class="btn btn-ghost" onclick="closeModalDirect()">Cancel</button>
+     <button class="btn btn-success" id="confirm-approve-btn" onclick="_executeApprove('${id}','${type}')">Yes, Approve</button>`
+  );
+}
+
+async function _executeApprove(id, type) {
+  const btn = document.getElementById('confirm-approve-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Approving…'; btn.style.opacity = '0.7'; }
+
   try {
     await approveCompetition(id, type);
     const label = type === 'pic' ? 'PIC' : 'Faculty';
@@ -443,8 +483,7 @@ async function doApprove(id, type) {
     if (typeof renderPage === 'function') renderPage();
   } catch (err) {
     toast(err.message || 'Approval failed', 'error');
-    // Re-enable buttons on failure
-    document.querySelectorAll('[onclick*="doApprove"]').forEach(b => { b.disabled = false; b.style.opacity = ''; });
+    if (btn) { btn.disabled = false; btn.textContent = 'Yes, Approve'; btn.style.opacity = ''; }
   }
 }
 
@@ -545,11 +584,11 @@ async function viewDetail(id, user) {
     canPICApprove ? `
       <button class="btn btn-ghost" onclick="closeModalDirect()">Close</button>
       <button class="btn btn-danger btn-sm" onclick="closeModalDirect();openRejectModal('${id}','pic')">Reject</button>
-      <button class="btn btn-success" onclick="doApprove('${id}','pic')">PIC Approve</button>
+      <button class="btn btn-success" onclick="closeModalDirect();doApprove('${id}','pic')">PIC Approve</button>
     ` : canFacultyAct ? `
       <button class="btn btn-ghost" onclick="closeModalDirect()">Close</button>
       <button class="btn btn-danger btn-sm" onclick="closeModalDirect();openRejectModal('${id}','faculty')">Reject</button>
-      <button class="btn btn-success" onclick="doApprove('${id}','faculty')">Faculty Approve ${comp.exemption ? '+ Letter' : ''}</button>
+      <button class="btn btn-success" onclick="closeModalDirect();doApprove('${id}','faculty')">Faculty Approve ${comp.exemption ? '+ Letter' : ''}</button>
     ` : `
       ${comp.letter_generated || comp.letterGenerated ? `<button class="btn btn-accent" onclick="closeModalDirect();downloadLetter('${id}')">📄 Download Letter</button>` : ''}
       <button class="btn btn-ghost" onclick="closeModalDirect()">Close</button>
