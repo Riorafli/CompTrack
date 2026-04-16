@@ -402,19 +402,118 @@ async function openSubmissionForm(editId) {
     <!-- ── SUPPORTING DOCUMENTS ────────────────────── -->
     <div class="form-section">
       <span class="form-section-title">Supporting Documents</span>
-      <div style="margin-top:8px">
-        <div class="file-drop-zone" id="drop-f-docs" onclick="document.getElementById('f-docs').click()"
-          ondragover="event.preventDefault();this.classList.add('drag-over')"
-          ondragleave="this.classList.remove('drag-over')"
-          ondrop="handleFileDrop(event,'f-docs')">
-          <input type="file" id="f-docs" multiple accept=".pdf,.jpg,.jpeg,.png" style="display:none"
-            onchange="handleFileSelect(this,'drop-f-docs')">
-          <div class="file-drop-icon">📎</div>
-          <div class="file-drop-text">Click or drag files here</div>
-          <div class="file-drop-sub">PDF, JPG, PNG accepted · Multiple files allowed</div>
+      <p style="font-size:12px;color:var(--text3);margin:6px 0 14px;">
+        Upload proof that this competition exists. At least one document is required before submitting.
+      </p>
+
+      <!-- Competition URL -->
+      <div class="supdoc-row">
+        <div class="supdoc-label-wrap">
+          <span class="supdoc-icon">🔗</span>
+          <div>
+            <div class="supdoc-label">Official Competition Link</div>
+            <div class="supdoc-hint">Website, registration page, or official announcement URL</div>
+          </div>
         </div>
-        <div class="file-preview" id="preview-f-docs" style="display:none"></div>
+        <input type="url" id="f-comp-url" class="supdoc-url-input" placeholder="https://competition.example.com" />
       </div>
+
+      <!-- Flyer / Poster -->
+      <div class="supdoc-row">
+        <div class="supdoc-label-wrap">
+          <span class="supdoc-icon">🪧</span>
+          <div>
+            <div class="supdoc-label">Flyer / Poster <span class="supdoc-badge">Image</span></div>
+            <div class="supdoc-hint">Official competition flyer or promotional poster</div>
+          </div>
+        </div>
+        <div class="supdoc-upload-wrap">
+          <div class="file-drop-zone supdoc-drop" id="drop-f-flyer" onclick="document.getElementById('f-flyer').click()"
+            ondragover="event.preventDefault();this.classList.add('drag-over')"
+            ondragleave="this.classList.remove('drag-over')"
+            ondrop="handleFileDrop(event,'f-flyer')">
+            <input type="file" id="f-flyer" accept=".jpg,.jpeg,.png,.pdf" style="display:none"
+              onchange="handleFileSelect(this,'drop-f-flyer')">
+            <div class="file-drop-icon" style="font-size:18px">📎</div>
+            <div class="file-drop-text" style="font-size:12px">Click or drag file here</div>
+            <div class="file-drop-sub">JPG, PNG, PDF</div>
+          </div>
+          <div class="file-preview" id="preview-f-flyer" style="display:none"></div>
+        </div>
+      </div>
+
+      <!-- Screenshot / Announcement -->
+      <div class="supdoc-row">
+        <div class="supdoc-label-wrap">
+          <span class="supdoc-icon">📸</span>
+          <div>
+            <div class="supdoc-label">Screenshot / Announcement <span class="supdoc-badge">Image</span></div>
+            <div class="supdoc-hint">Screenshot of official social media post, email, or announcement</div>
+          </div>
+        </div>
+        <div class="supdoc-upload-wrap">
+          <div class="file-drop-zone supdoc-drop" id="drop-f-screenshot" onclick="document.getElementById('f-screenshot').click()"
+            ondragover="event.preventDefault();this.classList.add('drag-over')"
+            ondragleave="this.classList.remove('drag-over')"
+            ondrop="handleFileDrop(event,'f-screenshot')">
+            <input type="file" id="f-screenshot" accept=".jpg,.jpeg,.png,.pdf" style="display:none"
+              onchange="handleFileSelect(this,'drop-f-screenshot')">
+            <div class="file-drop-icon" style="font-size:18px">📎</div>
+            <div class="file-drop-text" style="font-size:12px">Click or drag file here</div>
+            <div class="file-drop-sub">JPG, PNG, PDF</div>
+          </div>
+          <div class="file-preview" id="preview-f-screenshot" style="display:none"></div>
+        </div>
+      </div>
+
+      <!-- Proposal / Terms & Conditions -->
+      <div class="supdoc-row">
+        <div class="supdoc-label-wrap">
+          <span class="supdoc-icon">📄</span>
+          <div>
+            <div class="supdoc-label">Proposal / Terms &amp; Conditions <span class="supdoc-badge supdoc-badge--pdf">PDF</span></div>
+            <div class="supdoc-hint">Competition guidebook, TOR, or your team's proposal document</div>
+          </div>
+        </div>
+        <div class="supdoc-upload-wrap">
+          <div class="file-drop-zone supdoc-drop" id="drop-f-proposal" onclick="document.getElementById('f-proposal').click()"
+            ondragover="event.preventDefault();this.classList.add('drag-over')"
+            ondragleave="this.classList.remove('drag-over')"
+            ondrop="handleFileDrop(event,'f-proposal')">
+            <input type="file" id="f-proposal" accept=".pdf,.jpg,.jpeg,.png" style="display:none"
+              onchange="handleFileSelect(this,'drop-f-proposal')">
+            <div class="file-drop-icon" style="font-size:18px">📎</div>
+            <div class="file-drop-text" style="font-size:12px">Click or drag file here</div>
+            <div class="file-drop-sub">PDF, JPG, PNG</div>
+          </div>
+          <div class="file-preview" id="preview-f-proposal" style="display:none"></div>
+        </div>
+      </div>
+
+      <!-- Other / Additional -->
+      <div class="supdoc-row" style="border-bottom:none">
+        <div class="supdoc-label-wrap">
+          <span class="supdoc-icon">📁</span>
+          <div>
+            <div class="supdoc-label">Other Supporting Files</div>
+            <div class="supdoc-hint">Any additional documents relevant to this submission</div>
+          </div>
+        </div>
+        <div class="supdoc-upload-wrap">
+          <div class="file-drop-zone supdoc-drop" id="drop-f-docs" onclick="document.getElementById('f-docs').click()"
+            ondragover="event.preventDefault();this.classList.add('drag-over')"
+            ondragleave="this.classList.remove('drag-over')"
+            ondrop="handleFileDrop(event,'f-docs')">
+            <input type="file" id="f-docs" multiple accept=".pdf,.jpg,.jpeg,.png" style="display:none"
+              onchange="handleFileSelect(this,'drop-f-docs')">
+            <div class="file-drop-icon" style="font-size:18px">📎</div>
+            <div class="file-drop-text" style="font-size:12px">Click or drag files here</div>
+            <div class="file-drop-sub">PDF, JPG, PNG · Multiple allowed</div>
+          </div>
+          <div class="file-preview" id="preview-f-docs" style="display:none"></div>
+        </div>
+      </div>
+
     </div>
 
   </div>`,
@@ -508,7 +607,26 @@ function updateMember(i, field, val) {
 async function saveSubmission(action, existingId) {
   const name = document.getElementById('f-name')?.value?.trim();
   if (!name) { toast('Competition name is required', 'error'); return; }
-  const files = document.getElementById('f-docs')?.files || [];
+
+  // Gather all document files
+  const otherFiles     = document.getElementById('f-docs')?.files || [];
+  const flyerFile      = document.getElementById('f-flyer')?.files?.[0];
+  const screenshotFile = document.getElementById('f-screenshot')?.files?.[0];
+  const proposalFile   = document.getElementById('f-proposal')?.files?.[0];
+  const compUrl        = document.getElementById('f-comp-url')?.value?.trim() || '';
+
+  // Validation: require at least one proof for 'submit' action
+  if (action === 'submit' && !compUrl && !flyerFile && !screenshotFile && !proposalFile && !otherFiles.length) {
+    toast('Please provide at least one supporting document or competition link before submitting.', 'error');
+    return;
+  }
+
+  // Merge named docs into files array with type labels encoded in filename prefix
+  const allFiles = [...otherFiles];
+  if (flyerFile)      allFiles.unshift(new File([flyerFile],      `[flyer]${flyerFile.name}`,           { type: flyerFile.type }));
+  if (screenshotFile) allFiles.unshift(new File([screenshotFile], `[screenshot]${screenshotFile.name}`, { type: screenshotFile.type }));
+  if (proposalFile)   allFiles.unshift(new File([proposalFile],   `[proposal]${proposalFile.name}`,     { type: proposalFile.type }));
+
   const payload = {
     name,
     organizer:    document.getElementById('f-org').value,
@@ -532,7 +650,7 @@ async function saveSubmission(action, existingId) {
       return maj && reg ? `${maj} - ${reg}` : maj;
     })(),
     funding:      Number(String(document.getElementById('f-funding').value).replace(/[.,]/g, '')) || 0,
-    proposalLink: document.getElementById('f-link').value,
+    proposalLink: compUrl || document.getElementById('f-link').value,
     exemption:    document.getElementById('f-disp').value === '1',
     // Use the leader's explicitly selected major as the submission's major.
     // Fall back to the read-only profile field only if nothing was selected.
@@ -543,7 +661,7 @@ async function saveSubmission(action, existingId) {
     action,
   };
   try {
-    await saveCompetition(payload, existingId || null, [...files]);
+    await saveCompetition(payload, existingId || null, allFiles);
     closeModalDirect();
     toast(action === 'submit' ? 'Submission submitted! 🎉' : 'Draft saved', 'success');
     startPolling(); // FR-04: restart poll after modal closes
