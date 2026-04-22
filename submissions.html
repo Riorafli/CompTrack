@@ -205,6 +205,18 @@ async function submitComp(id) {
   try {
     const existing = await getCompetition(id);
     if (!existing) { toast('Competition not found', 'error'); return; }
+
+    // Validate required fields before submitting
+    const missing = [];
+    if (!existing.name     || !String(existing.name).trim())      missing.push('Competition Name');
+    if (!existing.organizer|| !String(existing.organizer).trim()) missing.push('Organizer');
+    if (!existing.level    || !String(existing.level).trim())     missing.push('Level');
+    if (!existing.category || !String(existing.category).trim())  missing.push('Category');
+    if (missing.length) {
+      toast(`Cannot submit — please fill in: ${missing.join(', ')}`, 'error');
+      return;
+    }
+
     const payload = {
       name:         existing.name,
       organizer:    existing.organizer   || '',
@@ -607,6 +619,21 @@ function updateMember(i, field, val) {
 async function saveSubmission(action, existingId) {
   const name = document.getElementById('f-name')?.value?.trim();
   if (!name) { toast('Competition name is required', 'error'); return; }
+
+  // For submit (not draft), validate all required fields up-front
+  if (action === 'submit') {
+    const organizer = document.getElementById('f-org')?.value?.trim();
+    const level     = document.getElementById('f-level')?.value?.trim();
+    const category  = document.getElementById('f-cat')?.value?.trim();
+    const missing = [];
+    if (!organizer) missing.push('Organizer');
+    if (!level)     missing.push('Level');
+    if (!category)  missing.push('Category');
+    if (missing.length) {
+      toast('Please fill in required fields: ' + missing.join(', '), 'error');
+      return;
+    }
+  }
 
   // Gather all document files
   const otherFiles     = document.getElementById('f-docs')?.files || [];
