@@ -1,0 +1,1174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CompTrack — Track Every Competition, From Start to Win</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,300&display=swap" rel="stylesheet">
+<style>
+/* ── RESET & BASE ── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --navy:    #1b3a52;
+  --ocean:   #2e86ab;
+  --teal:    #26a69a;
+  --indigo:  #5c6bc0;
+  --slate:   #3d5465;
+  --muted:   #7a96a8;
+  --border:  #ccdde9;
+  --bg:      #e8f2f8;
+  --surface: #ffffff;
+  --text:    #1a2b38;
+  --serif:   'DM Serif Display', serif;
+  --sans:    'DM Sans', sans-serif;
+}
+
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: var(--sans);
+  color: var(--text);
+  background: var(--surface);
+  overflow-x: hidden;
+}
+
+/* ── NAV ── */
+nav {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+  padding: 0 6vw;
+  height: 68px;
+  display: flex; align-items: center; justify-content: space-between;
+  background: rgba(255,255,255,0.88);
+  backdrop-filter: blur(16px);
+  border-bottom: 1px solid rgba(204,221,233,0.6);
+  animation: navSlide 0.5s ease both;
+}
+@keyframes navSlide {
+  from { opacity: 0; transform: translateY(-16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.nav-logo {
+  display: flex; align-items: center; gap: 10px;
+  text-decoration: none;
+}
+.nav-logo-icon {
+  width: 36px; height: 36px; border-radius: 10px;
+  background: linear-gradient(135deg, #7ecfde, #a5c8e8);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px;
+  box-shadow: 0 3px 10px rgba(126,207,222,0.4);
+}
+.nav-logo-name {
+  font-family: var(--serif);
+  font-size: 20px; color: var(--navy);
+}
+
+.nav-links {
+  display: flex; gap: 32px; list-style: none;
+}
+.nav-links a {
+  text-decoration: none; font-size: 14px; font-weight: 500;
+  color: var(--slate); transition: color 0.2s;
+}
+.nav-links a:hover { color: var(--ocean); }
+
+.nav-cta {
+  display: flex; gap: 10px; align-items: center;
+}
+.btn-nav-ghost {
+  padding: 8px 18px; border-radius: 8px;
+  border: 1.5px solid var(--border);
+  background: transparent; color: var(--slate);
+  font-family: var(--sans); font-size: 13.5px; font-weight: 500;
+  cursor: pointer; text-decoration: none; transition: all 0.2s;
+}
+.btn-nav-ghost:hover { border-color: var(--ocean); color: var(--ocean); }
+
+.btn-nav-primary {
+  padding: 8px 20px; border-radius: 8px;
+  border: none;
+  background: linear-gradient(135deg, var(--ocean), var(--indigo));
+  color: #fff;
+  font-family: var(--sans); font-size: 13.5px; font-weight: 600;
+  cursor: pointer; text-decoration: none; transition: all 0.2s;
+  box-shadow: 0 3px 12px rgba(46,134,171,0.3);
+}
+.btn-nav-primary:hover { opacity: 0.9; transform: translateY(-1px); box-shadow: 0 5px 16px rgba(46,134,171,0.4); }
+
+/* ── HERO ── */
+.hero {
+  min-height: 100vh;
+  padding: 0 6vw;
+  display: flex; align-items: center;
+  position: relative; overflow: hidden;
+  background: #e8f2f8;
+  background-image:
+    radial-gradient(ellipse at 15% 50%, rgba(46,134,171,0.14) 0%, transparent 55%),
+    radial-gradient(ellipse at 85% 20%, rgba(92,107,192,0.12) 0%, transparent 50%),
+    radial-gradient(ellipse at 60% 90%, rgba(38,166,154,0.08) 0%, transparent 45%);
+}
+
+/* Floating orbs */
+.hero-orb {
+  position: absolute; border-radius: 50%; pointer-events: none;
+  animation: orbFloat 8s ease-in-out infinite;
+}
+.orb-1 {
+  width: 480px; height: 480px;
+  background: radial-gradient(circle, rgba(46,134,171,0.12) 0%, transparent 70%);
+  top: -100px; right: -100px;
+  animation-delay: 0s;
+}
+.orb-2 {
+  width: 320px; height: 320px;
+  background: radial-gradient(circle, rgba(38,166,154,0.1) 0%, transparent 70%);
+  bottom: 60px; left: -60px;
+  animation-delay: -3s;
+}
+.orb-3 {
+  width: 200px; height: 200px;
+  background: radial-gradient(circle, rgba(92,107,192,0.1) 0%, transparent 70%);
+  top: 40%; right: 25%;
+  animation-delay: -5s;
+}
+@keyframes orbFloat {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50% { transform: translateY(-28px) scale(1.04); }
+}
+
+.hero-inner {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 64px; align-items: center;
+  max-width: 1200px; margin: 0 auto;
+  width: 100%; padding-top: 68px;
+}
+
+.hero-left { position: relative; z-index: 1; }
+
+.hero-badge {
+  display: inline-flex; align-items: center; gap: 8px;
+  background: rgba(46,134,171,0.1);
+  border: 1px solid rgba(46,134,171,0.25);
+  border-radius: 20px; padding: 5px 14px;
+  font-size: 12px; font-weight: 600; color: var(--ocean);
+  letter-spacing: 0.05em; text-transform: uppercase;
+  margin-bottom: 24px;
+  animation: fadeUp 0.6s ease 0.1s both;
+}
+.hero-badge::before {
+  content: ''; width: 6px; height: 6px; border-radius: 50%;
+  background: var(--ocean);
+  animation: dotPulse 2s ease-in-out infinite;
+}
+@keyframes dotPulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(1.4); }
+}
+
+.hero-title {
+  font-family: var(--serif);
+  font-size: clamp(38px, 5vw, 62px);
+  line-height: 1.1;
+  color: var(--navy);
+  margin-bottom: 22px;
+  animation: fadeUp 0.6s ease 0.2s both;
+}
+.hero-title em {
+  font-style: italic;
+  background: linear-gradient(135deg, var(--ocean), var(--teal));
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.hero-sub {
+  font-size: 17px; line-height: 1.7;
+  color: var(--slate); max-width: 480px;
+  margin-bottom: 36px;
+  animation: fadeUp 0.6s ease 0.3s both;
+}
+
+.hero-actions {
+  display: flex; gap: 14px; align-items: center;
+  margin-bottom: 48px;
+  animation: fadeUp 0.6s ease 0.4s both;
+}
+
+.btn-hero-primary {
+  padding: 13px 28px; border-radius: 10px;
+  background: linear-gradient(135deg, var(--navy) 0%, #1d5c7a 100%);
+  color: #fff; font-family: var(--sans);
+  font-size: 15px; font-weight: 600;
+  border: none; cursor: pointer; text-decoration: none;
+  transition: all 0.22s; display: inline-flex; align-items: center; gap: 8px;
+  box-shadow: 0 6px 22px rgba(27,58,82,0.3);
+}
+.btn-hero-primary:hover { transform: translateY(-2px); box-shadow: 0 10px 28px rgba(27,58,82,0.38); }
+.btn-hero-primary:active { transform: translateY(0); }
+
+.btn-hero-ghost {
+  padding: 13px 24px; border-radius: 10px;
+  border: 1.5px solid var(--border);
+  background: rgba(255,255,255,0.7);
+  color: var(--slate); font-family: var(--sans);
+  font-size: 15px; font-weight: 500;
+  cursor: pointer; text-decoration: none;
+  transition: all 0.2s; display: inline-flex; align-items: center; gap: 8px;
+  backdrop-filter: blur(4px);
+}
+.btn-hero-ghost:hover { border-color: var(--ocean); color: var(--ocean); background: rgba(255,255,255,0.9); }
+
+.hero-trust {
+  display: flex; align-items: center; gap: 14px;
+  animation: fadeUp 0.6s ease 0.5s both;
+}
+.trust-avatars {
+  display: flex;
+}
+.trust-avatar {
+  width: 32px; height: 32px; border-radius: 50%;
+  border: 2px solid white;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px; font-weight: 700; color: white;
+  margin-left: -8px;
+}
+.trust-avatar:first-child { margin-left: 0; }
+.trust-text { font-size: 13px; color: var(--muted); }
+.trust-text strong { color: var(--slate); }
+
+/* Hero right — app preview card */
+.hero-right {
+  position: relative; z-index: 1;
+  animation: fadeUp 0.7s ease 0.35s both;
+}
+
+.preview-wrapper {
+  display: flex;
+  flex-direction: column;
+}
+.preview-wrapper::after {
+  content: '';
+  display: table;
+  clear: both;
+}
+
+.app-preview {
+  background: white;
+  border-radius: 20px;
+  box-shadow: 0 24px 80px rgba(27,58,82,0.18), 0 4px 16px rgba(27,58,82,0.08);
+  border: 1px solid rgba(204,221,233,0.8);
+}
+
+.preview-topbar {
+  background: linear-gradient(90deg, #2e86ab 0%, #3a7bd5 55%, #5c6bc0 100%);
+  padding: 14px 20px;
+  display: flex; align-items: center; justify-content: space-between;
+  border-radius: 20px 20px 0 0;
+}
+.preview-table { padding: 0 16px 16px; border-radius: 0 0 20px 20px; overflow: hidden; }
+.preview-title { font-family: var(--serif); font-size: 16px; color: white; }
+.preview-actions { display: flex; gap: 8px; }
+.preview-btn {
+  padding: 5px 12px; border-radius: 6px;
+  background: rgba(255,255,255,0.2);
+  color: white; font-size: 11px; font-weight: 600; border: none;
+  cursor: default;
+}
+
+.preview-stats {
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  gap: 10px; padding: 16px;
+  background: #f4f8fb;
+  border-bottom: 1px solid var(--border);
+}
+.preview-stat {
+  border-radius: 10px; padding: 12px;
+  color: white; position: relative; overflow: hidden;
+}
+.preview-stat::after {
+  content: ''; position: absolute;
+  width: 60px; height: 60px; border-radius: 50%;
+  background: rgba(255,255,255,0.15);
+  right: -14px; bottom: -14px;
+}
+.ps-blue  { background: linear-gradient(135deg, #2e86ab, #3a7bd5); }
+.ps-green { background: linear-gradient(135deg, #2cb67d, #26a69a); }
+.ps-teal  { background: linear-gradient(135deg, #26a69a, #2e86ab); }
+.preview-stat-label { font-size: 9px; text-transform: uppercase; letter-spacing: 0.08em; opacity: 0.8; margin-bottom: 4px; }
+.preview-stat-val   { font-family: var(--serif); font-size: 22px; }
+
+.preview-table-head {
+  display: grid; grid-template-columns: 1.6fr 0.85fr 1.4fr;
+  padding: 8px 0; border-bottom: 1px solid var(--border);
+  font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted);
+}
+.preview-row {
+  display: grid; grid-template-columns: 1.6fr 0.85fr 1.4fr;
+  padding: 11px 0; border-bottom: 1px solid rgba(204,221,233,0.4);
+  font-size: 12px; align-items: center;
+  animation: rowSlide 0.4s ease both;
+}
+.preview-row:nth-child(2) { animation-delay: 0.8s; }
+.preview-row:nth-child(3) { animation-delay: 1.0s; }
+.preview-row:nth-child(4) { animation-delay: 1.2s; }
+.preview-row:nth-child(5) { animation-delay: 1.4s; }
+@keyframes rowSlide {
+  from { opacity: 0; transform: translateX(8px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+.preview-row:last-child { border-bottom: none; }
+.preview-comp-name { font-weight: 600; color: var(--text); font-size: 12px; }
+.preview-comp-org  { font-size: 10px; color: var(--muted); margin-top: 1px; }
+
+/* Preview status badges — match dashboard .status style */
+.preview-badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 5px 14px; border-radius: 20px; width: 100%;
+  font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em;
+  white-space: nowrap; box-sizing: border-box;
+}
+.preview-badge::before {
+  content: ''; width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0;
+}
+.pb-green  { background: rgba(38,166,154,0.13); color: #17867c; }
+.pb-green::before  { background: #26a69a; }
+.pb-blue   { background: rgba(46,134,171,0.13); color: #1f6e8c; }
+.pb-blue::before   { background: #2e86ab; }
+.pb-orange { background: rgba(244,162,97,0.16); color: #b85c00; }
+.pb-orange::before { background: #f4a261; }
+.pb-slate  { background: rgba(122,150,168,0.13); color: #5a7e93; }
+.pb-slate::before  { background: #7a96a8; }
+
+/* Preview level badges — compact, auto width */
+.preview-level {
+  display: inline-flex; align-items: center; justify-content: center;
+  padding: 5px 14px; border-radius: 20px;
+  font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em;
+  white-space: nowrap;
+}
+.pl-national      { background: rgba(244,162,97,0.15); color: #b85c00; }
+.pl-intl          { background: rgba(46,134,171,0.15); color: #1c6b8a; }
+.pl-regional      { background: rgba(44,182,125,0.15); color: #1a7a52; }
+
+/* Floating notification */
+.preview-notif {
+  display: inline-flex; align-items: center; gap: 10px;
+  background: white;
+  border-radius: 12px; padding: 10px 14px;
+  box-shadow: 0 8px 28px rgba(27,58,82,0.14);
+  border: 1px solid var(--border);
+  font-size: 12px;
+  margin-top: 12px;
+  margin-left: 0;
+  animation: notifPop 0.5s cubic-bezier(0.34,1.3,0.64,1) 1.6s both;
+  white-space: nowrap;
+}
+@keyframes notifPop {
+  from { opacity: 0; transform: scale(0.85) translateY(10px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+.notif-icon-wrap {
+  width: 32px; height: 32px; border-radius: 8px;
+  background: linear-gradient(135deg, #2cb67d, #26a69a);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 15px; flex-shrink: 0;
+}
+.notif-label { font-weight: 600; color: var(--text); font-size: 12px; }
+.notif-sub   { font-size: 10px; color: var(--muted); }
+
+/* Floating stat chip */
+.preview-chip {
+  display: inline-block;
+  background: linear-gradient(135deg, var(--navy), #1d5c7a);
+  border-radius: 14px; padding: 14px 18px;
+  box-shadow: 0 8px 28px rgba(27,58,82,0.28);
+  color: white;
+  margin-bottom: 10px;
+  float: right;
+  animation: chipPop 0.5s cubic-bezier(0.34,1.3,0.64,1) 1.2s both;
+}
+@keyframes chipPop {
+  from { opacity: 0; transform: scale(0.85) translateX(10px); }
+  to   { opacity: 1; transform: scale(1) translateX(0); }
+}
+.chip-val   { font-family: var(--serif); font-size: 22px; }
+.chip-label { font-size: 10px; opacity: 0.7; text-transform: uppercase; letter-spacing: 0.07em; }
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── STATS STRIP ── */
+.stats-strip {
+  background: var(--navy);
+  padding: 48px 6vw;
+}
+.stats-inner {
+  max-width: 1200px; margin: 0 auto;
+  display: grid; grid-template-columns: repeat(4, 1fr);
+  gap: 0; text-align: center;
+}
+.stat-item {
+  padding: 0 24px;
+  border-right: 1px solid rgba(255,255,255,0.1);
+}
+.stat-item:last-child { border-right: none; }
+.stat-num {
+  font-family: var(--serif); font-size: 42px; color: white;
+  line-height: 1; margin-bottom: 6px;
+}
+.stat-num span { color: #7ecfde; }
+.stat-desc { font-size: 13px; color: rgba(255,255,255,0.55); }
+
+/* ── SECTION BASE ── */
+section {
+  padding: 100px 6vw;
+}
+.section-inner {
+  max-width: 1200px; margin: 0 auto;
+}
+.section-badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: rgba(46,134,171,0.08);
+  border: 1px solid rgba(46,134,171,0.2);
+  border-radius: 20px; padding: 4px 12px;
+  font-size: 11px; font-weight: 700; color: var(--ocean);
+  text-transform: uppercase; letter-spacing: 0.08em;
+  margin-bottom: 16px;
+}
+.section-title {
+  font-family: var(--serif); font-size: clamp(28px, 3.5vw, 42px);
+  color: var(--navy); line-height: 1.2; margin-bottom: 16px;
+}
+.section-sub {
+  font-size: 16px; color: var(--slate); line-height: 1.7;
+  max-width: 520px;
+}
+
+/* ── HOW IT WORKS ── */
+.how-section {
+  background: #f4f8fb;
+}
+
+.how-header { text-align: center; margin-bottom: 72px; }
+.how-header .section-sub { margin: 0 auto; }
+
+.steps-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  gap: 0; position: relative;
+}
+
+/* Connecting line between steps */
+.steps-grid::before {
+  content: '';
+  position: absolute;
+  top: 52px; left: calc(16.67% + 28px); right: calc(16.67% + 28px);
+  height: 2px;
+  background: linear-gradient(90deg, var(--ocean), var(--teal));
+  opacity: 0.3;
+  z-index: 0;
+}
+
+.step-card {
+  padding: 0 28px; text-align: center; position: relative; z-index: 1;
+}
+
+.step-num-wrap {
+  width: 56px; height: 56px; border-radius: 50%;
+  margin: 0 auto 24px;
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--serif); font-size: 22px; font-weight: 700;
+  color: white; position: relative;
+  transition: transform 0.3s ease;
+}
+.step-num-wrap::before {
+  content: '';
+  position: absolute; inset: -4px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--ocean), var(--teal));
+  opacity: 0.15;
+  z-index: -1;
+}
+.step-card:hover .step-num-wrap { transform: scale(1.1); }
+
+.sn-1 { background: linear-gradient(135deg, #2e86ab, #3a7bd5); box-shadow: 0 8px 22px rgba(46,134,171,0.35); }
+.sn-2 { background: linear-gradient(135deg, #2cb67d, #26a69a); box-shadow: 0 8px 22px rgba(44,182,125,0.35); }
+.sn-3 { background: linear-gradient(135deg, #5c6bc0, #7986cb); box-shadow: 0 8px 22px rgba(92,107,192,0.35); }
+.sn-4 { background: linear-gradient(135deg, #f4a261, #e07b3a); box-shadow: 0 8px 22px rgba(244,162,97,0.35); }
+.sn-5 { background: linear-gradient(135deg, #26a69a, #2e86ab); box-shadow: 0 8px 22px rgba(38,166,154,0.35); }
+
+.step-icon { font-size: 24px; }
+.step-title {
+  font-family: var(--serif); font-size: 19px; color: var(--navy);
+  margin-bottom: 10px;
+}
+.step-desc { font-size: 14px; color: var(--slate); line-height: 1.65; }
+
+.step-detail {
+  margin-top: 16px; padding: 12px 14px;
+  background: white; border-radius: 10px;
+  border: 1px solid var(--border);
+  font-size: 12px; color: var(--muted);
+  display: flex; flex-direction: column; gap: 6px;
+}
+.step-detail-item {
+  display: flex; align-items: center; gap: 7px;
+}
+.step-detail-item::before {
+  content: '✓'; width: 16px; height: 16px; border-radius: 50%;
+  background: rgba(46,134,171,0.1); color: var(--ocean);
+  font-size: 9px; display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0; font-weight: 700;
+}
+
+/* Second row of steps */
+.steps-row2 {
+  display: grid; grid-template-columns: repeat(2, 1fr);
+  gap: 0; margin-top: 52px;
+  max-width: 700px; margin-left: auto; margin-right: auto;
+}
+
+/* ── FEATURES ── */
+.features-section { background: white; }
+
+.features-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  gap: 24px; margin-top: 56px;
+}
+
+.feature-card {
+  padding: 28px; border-radius: 16px;
+  border: 1.5px solid var(--border);
+  background: white;
+  transition: all 0.25s ease;
+  position: relative; overflow: hidden;
+}
+.feature-card::before {
+  content: '';
+  position: absolute; top: 0; left: 0; right: 0; height: 3px;
+  opacity: 0; transition: opacity 0.25s;
+}
+.fc-blue::before   { background: linear-gradient(90deg, #2e86ab, #3a7bd5); }
+.fc-green::before  { background: linear-gradient(90deg, #2cb67d, #26a69a); }
+.fc-indigo::before { background: linear-gradient(90deg, #5c6bc0, #7986cb); }
+.fc-teal::before   { background: linear-gradient(90deg, #26a69a, #2e86ab); }
+.fc-orange::before { background: linear-gradient(90deg, #f4a261, #e07b3a); }
+.fc-navy::before   { background: linear-gradient(90deg, #1b3a52, #2e86ab); }
+
+.feature-card:hover {
+  border-color: transparent;
+  box-shadow: 0 12px 36px rgba(46,134,171,0.14);
+  transform: translateY(-4px);
+}
+.feature-card:hover::before { opacity: 1; }
+
+.fc-icon {
+  width: 44px; height: 44px; border-radius: 12px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 20px; margin-bottom: 16px;
+}
+.fc-icon-blue   { background: rgba(46,134,171,0.12); }
+.fc-icon-green  { background: rgba(44,182,125,0.12); }
+.fc-icon-indigo { background: rgba(92,107,192,0.12); }
+.fc-icon-teal   { background: rgba(38,166,154,0.12); }
+.fc-icon-orange { background: rgba(244,162,97,0.12); }
+.fc-icon-navy   { background: rgba(27,58,82,0.08); }
+
+.fc-title { font-size: 15px; font-weight: 700; color: var(--navy); margin-bottom: 8px; }
+.fc-desc  { font-size: 13px; color: var(--slate); line-height: 1.65; }
+
+/* ── ROLES ── */
+.roles-section { background: #f4f8fb; }
+
+.roles-grid {
+  display: grid; grid-template-columns: repeat(4, 1fr);
+  gap: 20px; margin-top: 56px;
+}
+.role-card {
+  background: white; border-radius: 16px;
+  border: 1.5px solid var(--border);
+  padding: 28px 20px; text-align: center;
+  transition: all 0.25s;
+}
+.role-card:hover { border-color: var(--ocean); transform: translateY(-4px); box-shadow: 0 12px 36px rgba(46,134,171,0.12); }
+.role-icon-wrap {
+  width: 56px; height: 56px; border-radius: 50%;
+  margin: 0 auto 16px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 24px;
+}
+.ri-blue   { background: rgba(46,134,171,0.12); }
+.ri-green  { background: rgba(44,182,125,0.12); }
+.ri-indigo { background: rgba(92,107,192,0.12); }
+.ri-navy   { background: rgba(27,58,82,0.08); }
+
+.role-title { font-family: var(--serif); font-size: 18px; color: var(--navy); margin-bottom: 10px; }
+.role-desc  { font-size: 13px; color: var(--slate); line-height: 1.6; }
+.role-perms {
+  margin-top: 16px; display: flex; flex-direction: column; gap: 5px;
+  text-align: left;
+}
+.role-perm {
+  display: flex; align-items: center; gap: 7px;
+  font-size: 11.5px; color: var(--slate);
+}
+.role-perm::before {
+  content: ''; width: 5px; height: 5px; border-radius: 50%;
+  background: var(--ocean); flex-shrink: 0;
+}
+
+/* ── CTA SECTION ── */
+.cta-section {
+  background: linear-gradient(155deg, var(--navy) 0%, #1e4b6d 40%, #1d5c7a 70%, #1f9b8a 100%);
+  position: relative; overflow: hidden;
+}
+.cta-section::before {
+  content: '';
+  position: absolute; width: 600px; height: 600px; border-radius: 50%;
+  background: radial-gradient(circle, rgba(126,207,222,0.12) 0%, transparent 65%);
+  top: -200px; right: -150px; pointer-events: none;
+}
+.cta-section::after {
+  content: '';
+  position: absolute; width: 400px; height: 400px; border-radius: 50%;
+  background: radial-gradient(circle, rgba(46,134,171,0.15) 0%, transparent 65%);
+  bottom: -100px; left: -100px; pointer-events: none;
+}
+.cta-inner {
+  max-width: 700px; margin: 0 auto; text-align: center;
+  position: relative; z-index: 1;
+}
+.cta-title {
+  font-family: var(--serif); font-size: clamp(30px, 4vw, 48px);
+  color: white; line-height: 1.2; margin-bottom: 16px;
+}
+.cta-title em { font-style: italic; color: #7ecfde; }
+.cta-sub {
+  font-size: 16px; color: rgba(255,255,255,0.72);
+  line-height: 1.7; margin-bottom: 36px;
+}
+.cta-actions { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; }
+.btn-cta-primary {
+  padding: 14px 32px; border-radius: 10px;
+  background: white; color: var(--navy);
+  font-family: var(--sans); font-size: 15px; font-weight: 700;
+  border: none; cursor: pointer; text-decoration: none;
+  transition: all 0.22s; display: inline-flex; align-items: center; gap: 8px;
+  box-shadow: 0 6px 22px rgba(0,0,0,0.15);
+}
+.btn-cta-primary:hover { transform: translateY(-2px); box-shadow: 0 10px 32px rgba(0,0,0,0.22); }
+.btn-cta-ghost {
+  padding: 14px 28px; border-radius: 10px;
+  border: 1.5px solid rgba(255,255,255,0.35);
+  background: rgba(255,255,255,0.08);
+  color: white; font-family: var(--sans);
+  font-size: 15px; font-weight: 500;
+  cursor: pointer; text-decoration: none;
+  transition: all 0.2s; display: inline-flex; align-items: center; gap: 8px;
+  backdrop-filter: blur(8px);
+}
+.btn-cta-ghost:hover { border-color: rgba(255,255,255,0.6); background: rgba(255,255,255,0.14); }
+
+/* ── FOOTER ── */
+footer {
+  background: #0f2231;
+  padding: 56px 6vw 32px;
+}
+.footer-inner {
+  max-width: 1200px; margin: 0 auto;
+}
+.footer-top {
+  display: grid; grid-template-columns: 2fr 1fr 1fr 1fr;
+  gap: 48px; margin-bottom: 48px;
+}
+.footer-brand {}
+.footer-logo {
+  display: flex; align-items: center; gap: 10px;
+  text-decoration: none; margin-bottom: 14px;
+}
+.footer-logo-icon {
+  width: 34px; height: 34px; border-radius: 9px;
+  background: linear-gradient(135deg, #7ecfde, #a5c8e8);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 16px;
+}
+.footer-logo-name {
+  font-family: var(--serif); font-size: 18px; color: white;
+}
+.footer-brand-desc {
+  font-size: 13px; color: rgba(255,255,255,0.45);
+  line-height: 1.7; max-width: 260px;
+}
+.footer-col-title {
+  font-size: 11px; font-weight: 700; color: rgba(255,255,255,0.35);
+  text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 16px;
+}
+.footer-links { list-style: none; display: flex; flex-direction: column; gap: 10px; }
+.footer-links a {
+  text-decoration: none; font-size: 13px;
+  color: rgba(255,255,255,0.5); transition: color 0.2s;
+}
+.footer-links a:hover { color: #7ecfde; }
+
+.footer-bottom {
+  padding-top: 28px; border-top: 1px solid rgba(255,255,255,0.07);
+  display: flex; justify-content: space-between; align-items: center;
+}
+.footer-copy { font-size: 12px; color: rgba(255,255,255,0.3); }
+.footer-tagline { font-size: 12px; color: rgba(255,255,255,0.25); font-style: italic; }
+
+/* ── SCROLL REVEAL ── */
+.reveal {
+  opacity: 0; transform: translateY(28px);
+  transition: opacity 0.6s ease, transform 0.6s ease;
+}
+.reveal.visible {
+  opacity: 1; transform: translateY(0);
+}
+.reveal-delay-1 { transition-delay: 0.1s; }
+.reveal-delay-2 { transition-delay: 0.2s; }
+.reveal-delay-3 { transition-delay: 0.3s; }
+.reveal-delay-4 { transition-delay: 0.4s; }
+
+/* ── RESPONSIVE ── */
+@media (max-width: 1024px) {
+  .hero-inner { grid-template-columns: 1fr; gap: 48px; }
+  .hero-right { max-width: 540px; }
+  .steps-grid { grid-template-columns: 1fr; }
+  .steps-grid::before { display: none; }
+  .steps-row2 { grid-template-columns: 1fr; max-width: 400px; }
+  .features-grid { grid-template-columns: 1fr 1fr; }
+  .roles-grid { grid-template-columns: 1fr 1fr; }
+  .footer-top { grid-template-columns: 1fr 1fr; gap: 32px; }
+  .stats-inner { grid-template-columns: 1fr 1fr; gap: 32px; }
+  .stat-item { border-right: none; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 24px; }
+}
+
+@media (max-width: 640px) {
+  nav { padding: 0 4vw; }
+  .nav-links { display: none; }
+  section { padding: 64px 4vw; }
+  .hero { padding: 0 4vw; }
+  .features-grid { grid-template-columns: 1fr; }
+  .roles-grid { grid-template-columns: 1fr; }
+  .footer-top { grid-template-columns: 1fr; }
+  .footer-bottom { flex-direction: column; gap: 8px; text-align: center; }
+  .hero-actions { flex-direction: column; align-items: flex-start; }
+}
+</style>
+</head>
+<body>
+
+<!-- ── NAV ── -->
+<nav>
+  <a href="#" class="nav-logo">
+    <div class="nav-logo-icon">🏆</div>
+    <span class="nav-logo-name">CompTrack</span>
+  </a>
+  <ul class="nav-links">
+    <li><a href="#how">How It Works</a></li>
+    <li><a href="#features">Features</a></li>
+    <li><a href="#roles">Who It's For</a></li>
+  </ul>
+  <div class="nav-cta">
+    <a href="auth.html" class="btn-nav-ghost">Sign In</a>
+    <a href="auth.html" class="btn-nav-primary">Get Started →</a>
+  </div>
+</nav>
+
+<!-- ── HERO ── -->
+<section class="hero">
+  <div class="hero-orb orb-1"></div>
+  <div class="hero-orb orb-2"></div>
+  <div class="hero-orb orb-3"></div>
+
+  <div class="hero-inner">
+    <div class="hero-left">
+      <div class="hero-badge">🏆 Competition Management Platform</div>
+
+      <h1 class="hero-title">
+        Track every<br>
+        <em>competition</em><br>
+        from start to win
+      </h1>
+
+      <p class="hero-sub">
+        The all-in-one platform for managing student competition submissions, multi-level approvals, exemption letters, and achievement reports — all in one place.
+      </p>
+
+      <div class="hero-actions">
+        <a href="auth.html" class="btn-hero-primary">
+          Start Tracking <span>→</span>
+        </a>
+        <a href="#how" class="btn-hero-ghost">
+          <span>▶</span> See How It Works
+        </a>
+      </div>
+
+      <div class="hero-trust">
+        <div class="trust-avatars">
+          <div class="trust-avatar" style="background:#2e86ab">A</div>
+          <div class="trust-avatar" style="background:#2cb67d">B</div>
+          <div class="trust-avatar" style="background:#5c6bc0">C</div>
+          <div class="trust-avatar" style="background:#f4a261">D</div>
+        </div>
+        <p class="trust-text">Used by <strong>students, PIC, and faculty</strong> across departments</p>
+      </div>
+    </div>
+
+    <div class="hero-right">
+      <div class="preview-wrapper">
+        <!-- App Preview Card -->
+        <div class="app-preview">
+          <div class="preview-topbar">
+            <span class="preview-title">Submissions Dashboard</span>
+            <div class="preview-actions">
+              <span class="preview-btn">+ New</span>
+              <span class="preview-btn">Export</span>
+            </div>
+          </div>
+
+          <div class="preview-stats">
+            <div class="preview-stat ps-blue">
+              <div class="preview-stat-label">Total</div>
+              <div class="preview-stat-val">24</div>
+            </div>
+            <div class="preview-stat ps-green">
+              <div class="preview-stat-label">Approved</div>
+              <div class="preview-stat-val">18</div>
+            </div>
+            <div class="preview-stat ps-teal">
+              <div class="preview-stat-label">Pending</div>
+              <div class="preview-stat-val">6</div>
+            </div>
+          </div>
+
+          <div class="preview-table">
+            <div class="preview-table-head">
+              <span>Competition</span>
+              <span>Level</span>
+              <span>Status</span>
+            </div>
+            <div class="preview-row">
+              <div>
+                <div class="preview-comp-name">GEMASTIK XVII</div>
+                <div class="preview-comp-org">Kemdikbud</div>
+              </div>
+              <span class="preview-level pl-national">National</span>
+              <span class="preview-badge pb-green">Approved</span>
+            </div>
+            <div class="preview-row">
+              <div>
+                <div class="preview-comp-name">ICPC Asia</div>
+                <div class="preview-comp-org">ICPC Foundation</div>
+              </div>
+              <span class="preview-level pl-intl">International</span>
+              <span class="preview-badge pb-blue">Submitted</span>
+            </div>
+            <div class="preview-row">
+              <div>
+                <div class="preview-comp-name">PKM 2024</div>
+                <div class="preview-comp-org">Ditjen Dikti</div>
+              </div>
+              <span class="preview-level pl-national">National</span>
+              <span class="preview-badge pb-orange">PIC Review</span>
+            </div>
+            <div class="preview-row">
+              <div>
+                <div class="preview-comp-name">Hackfest UI</div>
+                <div class="preview-comp-org">Universitas Indonesia</div>
+              </div>
+              <span class="preview-level pl-regional">Regional</span>
+              <span class="preview-badge pb-slate">Draft</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── STATS STRIP ── -->
+<div class="stats-strip">
+  <div class="stats-inner">
+    <div class="stat-item reveal">
+      <div class="stat-num">500<span>+</span></div>
+      <div class="stat-desc">Submissions tracked</div>
+    </div>
+    <div class="stat-item reveal reveal-delay-1">
+      <div class="stat-num">4</div>
+      <div class="stat-desc">User roles supported</div>
+    </div>
+    <div class="stat-item reveal reveal-delay-2">
+      <div class="stat-num">2<span>x</span></div>
+      <div class="stat-desc">Faster approval flow</div>
+    </div>
+    <div class="stat-item reveal reveal-delay-3">
+      <div class="stat-num">100<span>%</span></div>
+      <div class="stat-desc">Digital — no paperwork</div>
+    </div>
+  </div>
+</div>
+
+<!-- ── HOW IT WORKS ── -->
+<section class="how-section" id="how">
+  <div class="section-inner">
+    <div class="how-header reveal">
+      <div class="section-badge">📋 How It Works</div>
+      <h2 class="section-title">From submission to approval<br>in 5 simple steps</h2>
+      <p class="section-sub">CompTrack streamlines the entire competition journey — no more chasing approvals or losing track of paperwork.</p>
+    </div>
+
+    <div class="steps-grid">
+      <div class="step-card reveal">
+        <div class="step-num-wrap sn-1">
+          <span class="step-icon">📝</span>
+        </div>
+        <h3 class="step-title">Student Submits</h3>
+        <p class="step-desc">Students fill in competition details, team members, funding needs, and upload supporting documents.</p>
+        <div class="step-detail">
+          <div class="step-detail-item">Competition details & dates</div>
+          <div class="step-detail-item">Team members by NIM</div>
+          <div class="step-detail-item">Funding & proposal link</div>
+        </div>
+      </div>
+
+      <div class="step-card reveal reveal-delay-1">
+        <div class="step-num-wrap sn-2">
+          <span class="step-icon">👤</span>
+        </div>
+        <h3 class="step-title">PIC Reviews</h3>
+        <p class="step-desc">The Program-in-Charge for the major reviews the submission, approves or returns it with notes.</p>
+        <div class="step-detail">
+          <div class="step-detail-item">Review submission details</div>
+          <div class="step-detail-item">Approve or reject with notes</div>
+          <div class="step-detail-item">Student gets notified</div>
+        </div>
+      </div>
+
+      <div class="step-card reveal reveal-delay-2">
+        <div class="step-num-wrap sn-3">
+          <span class="step-icon">🏛️</span>
+        </div>
+        <h3 class="step-title">Faculty Approves</h3>
+        <p class="step-desc">Faculty Admin gives final approval and — if requested — the exemption letter is auto-generated instantly.</p>
+        <div class="step-detail">
+          <div class="step-detail-item">Final review & approval</div>
+          <div class="step-detail-item">Auto-generate exemption letter</div>
+          <div class="step-detail-item">PDF ready to download</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="steps-row2">
+      <div class="step-card reveal">
+        <div class="step-num-wrap sn-4">
+          <span class="step-icon">🏅</span>
+        </div>
+        <h3 class="step-title">Log Achievement</h3>
+        <p class="step-desc">After the competition, students record results — rank, awards, and certificates — for the achievement report.</p>
+        <div class="step-detail">
+          <div class="step-detail-item">Record placement & awards</div>
+          <div class="step-detail-item">Upload certificate proof</div>
+        </div>
+      </div>
+
+      <div class="step-card reveal reveal-delay-1">
+        <div class="step-num-wrap sn-5">
+          <span class="step-icon">📊</span>
+        </div>
+        <h3 class="step-title">Export & Report</h3>
+        <p class="step-desc">Super Admin exports full reports — KPIs, funding summaries, user activity logs — in CSV format.</p>
+        <div class="step-detail">
+          <div class="step-detail-item">KPI & funding reports</div>
+          <div class="step-detail-item">Full audit activity log</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── FEATURES ── -->
+<section class="features-section" id="features">
+  <div class="section-inner">
+    <div class="reveal">
+      <div class="section-badge">⚡ Features</div>
+      <h2 class="section-title">Everything you need,<br>nothing you don't</h2>
+      <p class="section-sub">Built specifically for university competition management — every feature serves a real purpose.</p>
+    </div>
+
+    <div class="features-grid">
+      <div class="feature-card fc-blue reveal">
+        <div class="fc-icon fc-icon-blue">📋</div>
+        <h3 class="fc-title">Streamlined Submissions</h3>
+        <p class="fc-desc">Submit competitions with all required details in one structured form. No emails, no lost documents.</p>
+      </div>
+      <div class="feature-card fc-green reveal reveal-delay-1">
+        <div class="fc-icon fc-icon-green">✅</div>
+        <h3 class="fc-title">Multi-level Approval</h3>
+        <p class="fc-desc">Two-stage review by PIC and Faculty Admin with full notes and rejection reasons kept on record.</p>
+      </div>
+      <div class="feature-card fc-indigo reveal reveal-delay-2">
+        <div class="fc-icon fc-icon-indigo">📄</div>
+        <h3 class="fc-title">Auto Exemption Letters</h3>
+        <p class="fc-desc">Official exemption letters are generated automatically upon faculty approval — ready to download as PDF.</p>
+      </div>
+      <div class="feature-card fc-teal reveal">
+        <div class="fc-icon fc-icon-teal">📈</div>
+        <h3 class="fc-title">Analytics & KPIs</h3>
+        <p class="fc-desc">Real-time dashboards showing submission rates, funding totals, achievement stats per major.</p>
+      </div>
+      <div class="feature-card fc-orange reveal reveal-delay-1">
+        <div class="fc-icon fc-icon-orange">🏅</div>
+        <h3 class="fc-title">Achievement Tracking</h3>
+        <p class="fc-desc">Record competition outcomes — ranks, medals, and certificates — building a full achievement history.</p>
+      </div>
+      <div class="feature-card fc-navy reveal reveal-delay-2">
+        <div class="fc-icon fc-icon-navy">🔍</div>
+        <h3 class="fc-title">Full Audit Log</h3>
+        <p class="fc-desc">Every login, approval, rejection, and export is logged with timestamp. Super Admins see everything.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── ROLES ── -->
+<section class="roles-section" id="roles">
+  <div class="section-inner">
+    <div class="reveal" style="text-align:center; margin-bottom: 0;">
+      <div class="section-badge">👥 Who It's For</div>
+      <h2 class="section-title">Built for every role<br>in the department</h2>
+      <p class="section-sub" style="margin: 0 auto;">Each user sees exactly what they need — no more, no less.</p>
+    </div>
+
+    <div class="roles-grid">
+      <div class="role-card reveal">
+        <div class="role-icon-wrap ri-blue">🎓</div>
+        <h3 class="role-title">Student</h3>
+        <p class="role-desc">Submit competitions, track approval status in real-time, and log achievements.</p>
+        <div class="role-perms">
+          <div class="role-perm">Submit & edit competitions</div>
+          <div class="role-perm">View approval timeline</div>
+          <div class="role-perm">Download exemption letter</div>
+          <div class="role-perm">Log achievements</div>
+        </div>
+      </div>
+      <div class="role-card reveal reveal-delay-1">
+        <div class="role-icon-wrap ri-green">👤</div>
+        <h3 class="role-title">PIC Major</h3>
+        <p class="role-desc">First-level reviewer. Manage and review all submissions from your major.</p>
+        <div class="role-perms">
+          <div class="role-perm">Review & approve/reject</div>
+          <div class="role-perm">Add rejection notes</div>
+          <div class="role-perm">View major analytics</div>
+        </div>
+      </div>
+      <div class="role-card reveal reveal-delay-2">
+        <div class="role-icon-wrap ri-indigo">🏛️</div>
+        <h3 class="role-title">Faculty Admin</h3>
+        <p class="role-desc">Final approver. Give the green light and auto-generate exemption letters.</p>
+        <div class="role-perms">
+          <div class="role-perm">Final approval authority</div>
+          <div class="role-perm">Generate exemption letters</div>
+          <div class="role-perm">Export faculty reports</div>
+        </div>
+      </div>
+      <div class="role-card reveal reveal-delay-3">
+        <div class="role-icon-wrap ri-navy">⚡</div>
+        <h3 class="role-title">Super Admin</h3>
+        <p class="role-desc">Full system oversight — manage users, view all data, and export everything.</p>
+        <div class="role-perms">
+          <div class="role-perm">Manage all users</div>
+          <div class="role-perm">View full activity log</div>
+          <div class="role-perm">Export all reports</div>
+          <div class="role-perm">System-wide analytics</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── CTA ── -->
+<section class="cta-section">
+  <div class="cta-inner reveal">
+    <h2 class="cta-title">Ready to bring your<br><em>competitions on track?</em></h2>
+    <p class="cta-sub">Join students, PIC, and faculty who've replaced spreadsheets and email chains with a system that actually works.</p>
+    <div class="cta-actions">
+      <a href="auth.html" class="btn-cta-primary">🚀 Get Started Free</a>
+      <a href="auth.html" class="btn-cta-ghost">Sign In →</a>
+    </div>
+  </div>
+</section>
+
+<!-- ── FOOTER ── -->
+<footer>
+  <div class="footer-inner">
+    <div class="footer-top">
+      <div class="footer-brand">
+        <a href="#" class="footer-logo">
+          <div class="footer-logo-icon">🏆</div>
+          <span class="footer-logo-name">CompTrack</span>
+        </a>
+        <p class="footer-brand-desc">The all-in-one competition tracking platform for universities — submissions, approvals, letters, and reports in one place.</p>
+      </div>
+      <div>
+        <div class="footer-col-title">Product</div>
+        <ul class="footer-links">
+          <li><a href="#how">How It Works</a></li>
+          <li><a href="#features">Features</a></li>
+          <li><a href="#roles">Roles</a></li>
+        </ul>
+      </div>
+      <div>
+        <div class="footer-col-title">App</div>
+        <ul class="footer-links">
+          <li><a href="auth.html">Sign In</a></li>
+          <li><a href="auth.html">Create Account</a></li>
+          <li><a href="auth.html">Dashboard</a></li>
+        </ul>
+      </div>
+      <div>
+        <div class="footer-col-title">Pages</div>
+        <ul class="footer-links">
+          <li><a href="submissions.html">Submissions</a></li>
+          <li><a href="analytics.html">Analytics</a></li>
+          <li><a href="export.html">Export</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span class="footer-copy">© 2024 CompTrack. All rights reserved.</span>
+      <span class="footer-tagline">Track every competition, from start to win.</span>
+    </div>
+  </div>
+</footer>
+
+<script>
+// Scroll reveal
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(entry => {
+    if (entry.isIntersecting) {
+      entry.target.classList.add('visible');
+    }
+  });
+}, { threshold: 0.12 });
+
+document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+
+// Smooth nav background on scroll
+const nav = document.querySelector('nav');
+window.addEventListener('scroll', () => {
+  if (window.scrollY > 20) {
+    nav.style.boxShadow = '0 4px 20px rgba(27,58,82,0.1)';
+  } else {
+    nav.style.boxShadow = 'none';
+  }
+});
+</script>
+</body>
+</html>

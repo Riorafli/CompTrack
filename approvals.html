@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CompTrack — Pending Approvals</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="layout">
+  <div id="sidebar-wrap"></div>
+  <main class="main">
+    <div class="topbar">
+      <h1 class="page-title">Pending Approvals</h1>
+      <div class="topbar-actions">
+        <div class="search-bar"><input id="search-input" placeholder="Search submissions..." oninput="renderPage()"></div>
+      </div>
+    </div>
+    <div id="mcr-section"></div>
+    <div class="content" id="page-content"></div>
+  </main>
+</div>
+<div id="modal-placeholder"></div>
+<style>
+.mcr-badge { display:inline-block;background:rgba(255,181,71,.15);color:#c97c00;border:1px solid rgba(255,181,71,.35);border-radius:20px;font-size:10px;font-weight:700;letter-spacing:.06em;padding:2px 8px;text-transform:uppercase;margin-left:8px;vertical-align:middle; }
+.mcr-row td { vertical-align:middle; }
+.mcr-reason { font-size:11.5px;color:var(--text3);font-style:italic;max-width:220px; }
+</style>
+<script src="app.js"></script>
+<script>
+const user = requireAuth(['pic','superadmin']);
+if (user) {
+  document.getElementById('modal-placeholder').innerHTML = MODAL_HTML;
+  initSidebar('approvals.html', user);
+  renderPage();
+}
+
+// ── Major Change Requests (superadmin only) ──────────────
+function getMajorRequests() {
+  try { return JSON.parse(localStorage.getItem('ct_mcr_all')) || []; } catch { return []; }
+}
+
+function renderMajorRequests() {
+  const wrap = document.getElementById('mcr-section');
+  if (!wrap) return;
+  const requests = getMajorRequests().filter(r => r.status === 'pending');
+
+  if (requests.length === 0) {
+    wrap.innerHTML = `
+      <div class="card" style="margin-bottom:20px">
+        <div class="card-title">🏛️ Major Change Requests <span style="color:var(--text3);font-size:13px;font-weight:400">(0 pending)</span></div>
+        <div class="empty-state" style="padding:28px 0">
+          <div class="empty-icon">✅</div>
+          <div class="empty-title" style="font-size:14px">No pending major change requests</div>
+        </div>
+      </div>`;
+    return;
+  }
+
+  wrap.innerHTML = `
+    <div class="card" style="margin-bottom:20px">
+      <div class="card-title">🏛️ Major Change Requests <span class="mcr-badge">${requests.length} Pending</span></div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Request ID</th><th>Student</th><th>NIM</th><th>Current Major</th><th>Requested Major</th><th>Reason</th><th>Submitted</th><th>Actions</th></tr></thead>
+          <tbody>
+            ${requests.map(r => `
+            <tr class="mcr-row">
+              <td style="font-size:11px;color:var(--text3)">${r.id}</td>
+              <td><div class="td-main">${r.studentName}</div><div style="font-size:11px;color:var(--text3)">${r.studentEmail}</div></td>
+              <td>${r.studentNIM || '—'}</td>
+              <td style="font-size:13px;color:var(--text2)">${r.currentMajor || '—'}</td>
+              <td style="font-size:13px;font-weight:600;color:var(--accent)">${r.requestedMajor}</td>
+              <td><div class="mcr-reason">${r.reason}</div></td>
+              <td style="font-size:12px;color:var(--text3)">${formatDate(r.submittedAt, true)}</td>
+              <td style="display:flex;gap:6px">
+                <button class="btn btn-success btn-sm" onclick="approveMajorRequest('${r.userId}','${r.requestedMajor}')">Approve</button>
+                <button class="btn btn-danger btn-sm"  onclick="rejectMajorRequest('${r.userId}','${r.requestedMajor}')">Reject</button>
+              </td>
+            </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>`;
+}
+
+function approveMajorRequest(userId, requestedMajor) {
+  if (!confirm(`Approve major change to "${requestedMajor}" for this student?`)) return;
+
+  const allKey  = 'ct_mcr_all';
+  const userKey = `ct_mcr_${userId}`;
+  let all = getMajorRequests();
+  const req = all.find(r => r.userId === userId);
+  if (!req) { toast('Request not found', 'error'); return; }
+
+  req.status     = 'approved';
+  req.reviewedAt = new Date().toISOString();
+  req.adminName  = user.name;
+
+  localStorage.setItem(allKey,  JSON.stringify(all));
+  localStorage.setItem(userKey, JSON.stringify(req));
+
+  // ── Update user's major in the shared user override store ──
+  // profile.html reads ct_user (own session) — we write to a
+  // shared key so the student sees it on next login or page load.
+  const overrideKey = `ct_user_major_${userId}`;
+  localStorage.setItem(overrideKey, requestedMajor);
+
+  // Also update ct_user if the superadmin happens to be viewing
+  // the same browser (same-origin dev scenario)
+  try {
+    const allUsers = JSON.parse(localStorage.getItem('ct_all_users_cache')) || [];
+    const u = allUsers.find(x => (x.id || x.userId) === userId);
+    if (u) { u.major = requestedMajor; localStorage.setItem('ct_all_users_cache', JSON.stringify(allUsers)); }
+  } catch {}
+
+  // ── Push notification back to student ──
+  const studentNotifKey = `ct_user_notifs_${userId}`;
+  let studentNotifs = [];
+  try { studentNotifs = JSON.parse(localStorage.getItem(studentNotifKey)) || []; } catch {}
+  studentNotifs.unshift({
+    id: 'notif-mcr-approved-' + Date.now(),
+    type: 'major_approved',
+    icon: '✅',
+    title: 'Major Change Approved!',
+    message: `Your request to change major to "${requestedMajor}" has been approved by ${user.name}. Your profile has been updated.`,
+    createdAt: new Date().toISOString(),
+    read: false,
+  });
+  localStorage.setItem(studentNotifKey, JSON.stringify(studentNotifs));
+
+  toast(`✅ Major change approved → ${requestedMajor}`, 'success');
+  renderMajorRequests();
+}
+
+function rejectMajorRequest(userId, requestedMajor) {
+  const note = prompt(`Rejection reason for "${requestedMajor}" request (optional):`);
+  if (note === null) return; // cancelled
+
+  const allKey  = 'ct_mcr_all';
+  const userKey = `ct_mcr_${userId}`;
+  let all = getMajorRequests();
+  const req = all.find(r => r.userId === userId);
+  if (!req) { toast('Request not found', 'error'); return; }
+
+  req.status     = 'rejected';
+  req.adminNote  = note || '';
+  req.reviewedAt = new Date().toISOString();
+  req.adminName  = user.name;
+
+  localStorage.setItem(allKey,  JSON.stringify(all));
+  localStorage.setItem(userKey, JSON.stringify(req));
+
+  // ── Push rejection notification to student ──
+  const studentNotifKey = `ct_user_notifs_${userId}`;
+  let studentNotifs = [];
+  try { studentNotifs = JSON.parse(localStorage.getItem(studentNotifKey)) || []; } catch {}
+  studentNotifs.unshift({
+    id: 'notif-mcr-rejected-' + Date.now(),
+    type: 'major_rejected',
+    icon: '❌',
+    title: 'Major Change Request Rejected',
+    message: `Your request to change major to "${req.requestedMajor}" was not approved.${note ? ` Reason: "${note}"` : ''}`,
+    createdAt: new Date().toISOString(),
+    read: false,
+  });
+  localStorage.setItem(studentNotifKey, JSON.stringify(studentNotifs));
+
+  toast('Request rejected', 'info');
+  renderMajorRequests();
+}
+
+async function renderPage() {
+  // Render MCR section for superadmin
+  if (user.role === 'superadmin') renderMajorRequests();
+
+  const q = document.getElementById('search-input')?.value?.toLowerCase()||'';
+  const competitions = await getCompetitions({ status: 'submitted' });
+  let pending = competitions;
+  if (q) pending = pending.filter(c => c.name.toLowerCase().includes(q)||c.id.toLowerCase().includes(q));
+
+  document.getElementById('page-content').innerHTML = pending.length ? `
+  <div class="card">
+    <div class="card-title">Submissions Awaiting PIC Approval <span style="color:var(--accent);font-size:14px;font-family:var(--font-sans)">(${pending.length})</span></div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>ID</th><th>Competition</th><th>Submitted By</th><th>Level</th><th>Funding</th><th>Exemption</th><th>Actions</th></tr></thead>
+        <tbody>
+          ${pending.map(c => `
+          <tr>
+            <td style="font-size:11px;color:var(--text3)">${c.id}</td>
+            <td><div class="td-main">${c.name}</div><div style="font-size:11px;color:var(--text3)">${c.organizer} · ${formatDate(c.submitted_at, true)}</div></td>
+            <td><div class="td-main">${c.submitter_name || c.members[0] || '—'}</div><div style="font-size:11px;color:var(--text3)">${c.major || '—'}</div></td>
+            <td><span class="level-badge level-${c.level}">${c.level}</span></td>
+            <td>IDR ${formatFunding(c.funding)}</td>
+            <td>${c.exemption?'<span style="color:var(--warn)">Required</span>':'—'}</td>
+            <td style="display:flex;gap:6px">
+              <button class="btn btn-ghost btn-sm" onclick="viewDetail('${c.id}',${JSON.stringify(user).replace(/"/g,'&quot;')})">View</button>
+              <button class="btn btn-success btn-sm" onclick="doApprove('${c.id}','pic')">Approve</button>
+              <button class="btn btn-danger btn-sm" onclick="openRejectModal('${c.id}','pic')">Reject</button>
+            </td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>
+  </div>` : `
+  <div class="empty-state">
+    <div class="empty-icon">✅</div>
+    <div class="empty-title">All caught up!</div>
+    <div class="empty-sub">No pending approvals</div>
+  </div>`;
+}
+</script>
+</body>
+</html>

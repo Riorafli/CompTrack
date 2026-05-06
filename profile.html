@@ -1,0 +1,877 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CompTrack — My Profile</title>
+<link rel="stylesheet" href="style.css">
+<style>
+/* ── Profile page styles ── */
+.profile-hero {
+  background: linear-gradient(135deg, #0f2942 0%, #1a4a6e 50%, #2e86ab 100%);
+  border-radius: var(--radius);
+  padding: 32px 32px 56px;
+  margin-bottom: -36px;
+  color: #fff;
+  position: relative;
+}
+.profile-hero-top { display: flex; align-items: flex-start; gap: 20px; }
+.profile-avatar-wrap { position: relative; flex-shrink: 0; }
+.profile-avatar {
+  width: 72px; height: 72px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 28px; font-weight: 700; color: #fff;
+  border: 3px solid rgba(255,255,255,.3);
+}
+.avatar-edit-btn {
+  position: absolute; bottom: 0; right: 0;
+  width: 22px; height: 22px; border-radius: 50%;
+  background: var(--accent); border: 2px solid #fff;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px; cursor: pointer;
+}
+.profile-hero-info { flex: 1; }
+.profile-hero-name { font-size: 22px; font-weight: 700; margin-bottom: 4px; }
+.profile-hero-email { font-size: 13px; opacity: .75; margin-bottom: 10px; }
+.profile-hero-stats { display: flex; gap: 28px; }
+.hero-stat { text-align: center; }
+.hero-stat-val { font-size: 22px; font-weight: 700; }
+.hero-stat-lbl { font-size: 10px; opacity: .65; text-transform: uppercase; letter-spacing: .07em; }
+
+.profile-body { position: relative; z-index: 1; }
+.profile-tabs {
+  display: flex; gap: 4px;
+  background: var(--surface2); padding: 4px; border-radius: var(--radius-sm);
+  margin-bottom: 20px; width: fit-content;
+}
+.profile-tab {
+  padding: 7px 18px; border-radius: calc(var(--radius-sm) - 2px);
+  font-size: 13px; font-weight: 500; cursor: pointer;
+  color: var(--text2); border: none; background: transparent; transition: all .18s;
+}
+.profile-tab.active {
+  background: var(--surface); color: var(--text);
+  box-shadow: 0 1px 4px rgba(0,0,0,.08);
+}
+.profile-tab-panel { display: none; }
+.profile-tab-panel.active { display: grid; grid-template-columns: 1fr 340px; gap: 16px; }
+
+/* Cards */
+.profile-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 24px;
+}
+.profile-card-title {
+  font-size: 14px; font-weight: 600; color: var(--text);
+  margin-bottom: 18px; display: flex; align-items: center; gap: 8px;
+}
+.role-badge-inline {
+  font-size: 10px; font-weight: 700; letter-spacing: .08em;
+  padding: 3px 8px; border-radius: 20px;
+  background: rgba(46,134,171,.12); color: var(--accent);
+  text-transform: uppercase; margin-left: auto;
+}
+
+/* Form */
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.form-group { margin-bottom: 14px; }
+.form-label {
+  display: block; font-size: 11px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: .07em;
+  color: var(--text3); margin-bottom: 6px;
+}
+.form-input {
+  width: 100%; padding: 9px 12px; border-radius: var(--radius-sm);
+  border: 1.5px solid var(--border); background: var(--surface2);
+  color: var(--text); font-size: 13.5px; font-family: var(--font-sans);
+  outline: none; transition: border-color .18s; box-sizing: border-box;
+}
+.form-input:focus { border-color: var(--accent); }
+.form-input:disabled { opacity: .55; cursor: not-allowed; }
+.form-input-hint { font-size: 11px; color: var(--text3); margin-top: 4px; }
+
+/* Avatar colors */
+.avatar-colors { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
+.color-dot {
+  width: 28px; height: 28px; border-radius: 50%; cursor: pointer;
+  border: 2.5px solid transparent; transition: transform .15s, border-color .15s;
+}
+.color-dot:hover { transform: scale(1.15); }
+.color-dot.selected { border-color: var(--text); transform: scale(1.1); }
+
+/* Account overview */
+.overview-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 9px 0; border-bottom: 1px solid var(--border); font-size: 13px;
+}
+.overview-row:last-child { border-bottom: none; }
+.overview-key { color: var(--text3); display: flex; align-items: center; gap: 7px; }
+.overview-val { color: var(--text); font-weight: 500; max-width: 190px; text-align: right; font-size: 12px; word-break: break-all; }
+
+.perms-title { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--text3); margin: 16px 0 8px; }
+.perm-item { font-size: 12px; color: var(--text2); padding: 3px 0; display: flex; align-items: center; gap: 6px; }
+.perm-item::before { content: '✓'; color: var(--success); font-weight: 700; }
+
+/* ── Major Change Request section ── */
+.major-change-section {
+  margin-top: 20px; padding-top: 18px;
+  border-top: 1px solid var(--border);
+}
+.major-change-title {
+  font-size: 12px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .07em; color: var(--text3); margin-bottom: 10px;
+}
+.major-pending-banner {
+  background: rgba(255,181,71,.1); border: 1px solid rgba(255,181,71,.3);
+  border-radius: var(--radius-sm); padding: 12px 14px;
+  font-size: 12.5px; color: var(--text2);
+}
+.major-pending-banner strong { color: var(--warn); }
+.major-rejected-banner {
+  background: rgba(255,92,106,.08); border: 1px solid rgba(255,92,106,.25);
+  border-radius: var(--radius-sm); padding: 12px 14px;
+  font-size: 12.5px; color: var(--text2); margin-bottom: 10px;
+}
+.major-rejected-banner strong { color: var(--danger); }
+.btn-request-major {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 8px 16px; border-radius: var(--radius-sm);
+  background: rgba(46,134,171,.1); color: var(--accent);
+  border: 1.5px solid rgba(46,134,171,.3); font-size: 13px;
+  font-weight: 600; cursor: pointer; transition: all .18s;
+}
+.btn-request-major:hover { background: rgba(46,134,171,.18); border-color: var(--accent); }
+
+/* Security tab */
+.profile-tab-panel.security-panel { display: none; }
+.profile-tab-panel.security-panel.active { display: block; max-width: 480px; }
+
+/* Activity tab */
+.activity-panel { display: none; }
+.activity-panel.active { display: block; }
+.activity-item {
+  display: flex; gap: 12px; padding: 12px 0;
+  border-bottom: 1px solid var(--border); font-size: 13px;
+}
+.activity-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); margin-top: 5px; flex-shrink: 0; }
+.activity-desc { color: var(--text2); }
+.activity-time { font-size: 11px; color: var(--text3); margin-top: 2px; }
+</style>
+</head>
+<body>
+<div class="layout">
+  <div id="sidebar-wrap"></div>
+  <main class="main">
+    <div class="topbar">
+      <h1 class="page-title">My Profile</h1>
+    </div>
+    <div class="content">
+
+      <!-- Hero -->
+      <div class="profile-hero" id="profile-hero">
+        <div class="profile-hero-top">
+          <div class="profile-avatar-wrap">
+            <div class="profile-avatar" id="hero-avatar">?</div>
+            <div class="avatar-edit-btn" title="Change avatar color">✏️</div>
+          </div>
+          <div class="profile-hero-info">
+            <div class="profile-hero-name" id="hero-name">Loading…</div>
+            <div class="profile-hero-email" id="hero-email"></div>
+            <div class="profile-hero-stats">
+              <div class="hero-stat"><div class="hero-stat-val" id="stat-submissions">—</div><div class="hero-stat-lbl">Submissions</div></div>
+              <div class="hero-stat"><div class="hero-stat-val" id="stat-completed">—</div><div class="hero-stat-lbl">Completed</div></div>
+              <div class="hero-stat"><div class="hero-stat-val" id="stat-pending">—</div><div class="hero-stat-lbl">Pending</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tabs + Body -->
+      <div class="profile-body">
+        <div class="profile-tabs">
+          <button class="profile-tab active" onclick="switchTab('info',this)">👤 Profile Info</button>
+          <button class="profile-tab" onclick="switchTab('security',this)">🔒 Security</button>
+          <button class="profile-tab" onclick="switchTab('activity',this)">📋 Activity</button>
+        </div>
+
+        <!-- ── Profile Info Tab ── -->
+        <div class="profile-tab-panel active" id="tab-info">
+
+          <!-- Left: Personal Info card -->
+          <div>
+            <div class="profile-card">
+              <div class="profile-card-title">
+                Personal Information
+                <span class="role-badge-inline" id="role-badge">RBAC – STUDENT</span>
+              </div>
+
+              <div class="form-row">
+                <div class="form-group">
+                  <label class="form-label">Full Name *</label>
+                  <input class="form-input" id="inp-name" type="text" placeholder="Your full name">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Email Address</label>
+                  <input class="form-input" id="inp-email" type="email" disabled>
+                  <div class="form-input-hint">Email cannot be changed</div>
+                </div>
+              </div>
+
+              <div class="form-row" id="student-fields">
+                <div class="form-group">
+                  <label class="form-label">NIM / Student ID</label>
+                  <input class="form-input" id="inp-nim" type="text">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Major / Department</label>
+                  <input class="form-input" id="inp-major-display" type="text" disabled>
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Role</label>
+                <div style="display:flex;align-items:center;gap:10px;margin-top:4px">
+                  <span class="role-badge-inline" id="role-pill" style="margin-left:0;font-size:11px;padding:4px 10px">STUDENT</span>
+                  <span style="font-size:12px;color:var(--text3)">Contact Super Admin to change role</span>
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Avatar Color</label>
+                <div class="avatar-colors" id="avatar-colors"></div>
+              </div>
+
+              <button class="btn btn-primary" onclick="saveProfile()" style="margin-top:4px">Save Changes</button>
+
+              <!-- Major Change Request (students only) -->
+              <div class="major-change-section" id="major-change-section" style="display:none">
+                <div class="major-change-title">🏛️ Major Change Request</div>
+                <div id="major-change-status"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Right: Account Overview -->
+          <div>
+            <div class="profile-card">
+              <div class="profile-card-title">Account Overview</div>
+              <div class="overview-row"><span class="overview-key">👤 Account ID</span><span class="overview-val" id="ov-id">—</span></div>
+              <div class="overview-row"><span class="overview-key">✉️ Email</span><span class="overview-val" id="ov-email">—</span></div>
+              <div class="overview-row"><span class="overview-key">🎓 Role</span><span class="overview-val" id="ov-role">—</span></div>
+              <div class="overview-row" id="ov-major-row"><span class="overview-key">🏛️ Major</span><span class="overview-val" id="ov-major">—</span></div>
+              <div class="overview-row" id="ov-region-row"><span class="overview-key">📍 Region</span><span class="overview-val" id="ov-region">—</span></div>
+              <div class="overview-row" id="ov-nim-row"><span class="overview-key">🔑 NIM</span><span class="overview-val" id="ov-nim">—</span></div>
+              <div class="overview-row"><span class="overview-key">📅 Joined</span><span class="overview-val" id="ov-joined">—</span></div>
+              <div class="overview-row"><span class="overview-key">🕐 Last Updated</span><span class="overview-val" id="ov-updated">—</span></div>
+
+              <div class="perms-title">Permissions</div>
+              <div id="perms-list"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── Security Tab ── -->
+        <div class="profile-tab-panel security-panel" id="tab-security">
+          <div class="profile-card">
+            <div class="profile-card-title">🔒 Change Password</div>
+            <div class="form-group">
+              <label class="form-label">Current Password</label>
+              <input class="form-input" id="sec-current" type="password" placeholder="••••••••">
+            </div>
+            <div class="form-group">
+              <label class="form-label">New Password</label>
+              <input class="form-input" id="sec-new" type="password" placeholder="••••••••">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Confirm New Password</label>
+              <input class="form-input" id="sec-confirm" type="password" placeholder="••••••••">
+            </div>
+            <button class="btn btn-primary" onclick="changePassword()">Update Password</button>
+          </div>
+        </div>
+
+        <!-- ── Activity Tab ── -->
+        <div class="profile-tab-panel activity-panel" id="tab-activity">
+          <div class="profile-card">
+            <div class="profile-card-title">📋 Recent Activity</div>
+            <div id="activity-list"><div style="color:var(--text3);font-size:13px">Loading activity…</div></div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /content -->
+  </main>
+</div>
+
+<div id="modal-placeholder"></div>
+
+<!-- Major Change Request Modal -->
+<div id="major-modal-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1000;align-items:center;justify-content:center" onclick="closeMajorModal(event)">
+  <div style="background:var(--surface);border-radius:var(--radius);padding:28px;width:100%;max-width:440px;position:relative" onclick="event.stopPropagation()">
+    <div style="font-size:16px;font-weight:700;color:var(--text);margin-bottom:6px">Request Major Change</div>
+    <div style="font-size:13px;color:var(--text2);margin-bottom:20px">Your request will be sent to Super Admin for approval. You'll be notified of the decision.</div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:end">
+      <div class="form-group" style="margin-bottom:0">
+        <label class="form-label">Current Campus / Region</label>
+        <input class="form-input" id="modal-current-campus" disabled style="width:100%;box-sizing:border-box;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
+      </div>
+      <div class="form-group" style="margin-bottom:0">
+        <label class="form-label">Current Major</label>
+        <input class="form-input" id="modal-current-major" disabled style="width:100%;box-sizing:border-box;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:14px">
+      <div class="form-group" style="margin-bottom:0">
+        <label class="form-label">New Region / Campus *</label>
+        <select class="form-input" id="modal-new-campus" onchange="onCampusChange()">
+          <option value="" disabled selected>Select campus…</option>
+        </select>
+      </div>
+      <div class="form-group" style="margin-bottom:0">
+        <label class="form-label">New Major *</label>
+        <select class="form-input" id="modal-new-major" disabled>
+          <option value="" disabled selected>Select major…</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Reason *</label>
+      <textarea class="form-input" id="modal-reason" rows="3" placeholder="Briefly explain why you are requesting this major change…" style="resize:vertical"></textarea>
+    </div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:4px">
+      <button class="btn btn-ghost" onclick="document.getElementById('major-modal-overlay').style.display='none'">Cancel</button>
+      <button class="btn btn-primary" onclick="submitMajorChangeRequest()">Submit Request</button>
+    </div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+<script>
+// ══════════════════════════════════════════════════
+// CONFIG
+// ══════════════════════════════════════════════════
+const AVATAR_COLORS = [
+  '#4f8aff','#7c5cfc','#00c896','#ff8c42',
+  '#ff5c6a','#ffb547','#00b4d8','#5e6ad2',
+  '#10b981','#ef4444','#3b82f6','#f59e0b'
+];
+
+const MAJORS_BY_CAMPUS = {
+  'Kemanggisan': ['Computer Science','Computer Science - Statistics','Computer Science - Mathematics','Game Application & Technology','Cyber Security','Artificial Intelligence','Data Science'],
+  'Alam Sutera': ['Computer Science','Computer Science - Global Class','Cyber Security','Artificial Intelligence'],
+  'Bekasi':      ['Computer Science - Software Engineering'],
+  'Bandung':     ['Computer Science'],
+  'Malang':      ['Computer Science'],
+  'Semarang':    ['Computer Science'],
+  'Medan':       ['Computer Science'],
+};
+
+// Known campus names used to strip legacy combined "Major Campus" strings
+const KNOWN_CAMPUSES = Object.keys(MAJORS_BY_CAMPUS);
+
+// Parse a potentially legacy "Major Campus" string into { major, campus }
+function parseMajorCampus(raw) {
+  if (!raw) return { major: '', campus: '' };
+  for (const campus of KNOWN_CAMPUSES) {
+    const suffix = ' ' + campus;
+    if (raw.toLowerCase().endsWith(suffix.toLowerCase())) {
+      return { major: raw.slice(0, raw.length - suffix.length).trim(), campus };
+    }
+  }
+  // Try " - " separator (e.g. "Computer Science - Global Class" stored as major, no campus)
+  // Find campus from MAJORS_BY_CAMPUS
+  for (const [campus, majors] of Object.entries(MAJORS_BY_CAMPUS)) {
+    if (majors.some(m => m.toLowerCase() === raw.toLowerCase())) {
+      return { major: raw, campus };
+    }
+  }
+  return { major: raw, campus: '' };
+}
+
+const PERMISSIONS = {
+  student:    ['Submit & edit competition proposals','View own approval timeline','Download exemption letters','Log achievement reports'],
+  pic:        ['Approve/reject student submissions','View all department competitions','Manage team exemptions','Access analytics dashboard'],
+  faculty:    ['Final approval authority','View all submissions & reports','Download full analytics','Manage faculty reviews'],
+  superadmin: ['Full system access','Manage users & roles','Approve major change requests','Configure system settings','Access all data'],
+};
+
+const ROLE_LABELS = { student: 'Student', pic: 'PIC Major', faculty: 'Faculty Admin', superadmin: 'Super Admin' };
+
+// ══════════════════════════════════════════════════
+// INIT
+// ══════════════════════════════════════════════════
+const user = requireAuth();
+if (user) {
+  document.getElementById('modal-placeholder').innerHTML = MODAL_HTML;
+  initSidebar('profile.html', user);
+  initProfile();
+}
+
+async function initProfile() {
+  // ── Fetch fresh user data from the database ───────────
+  let fresh = null;
+  try {
+    const res = await apiFetch('/auth/me');
+    if (res.ok) {
+      const data = await res.json();
+      fresh = data.user;
+      // Sync updated user into localStorage so tokens stay consistent
+      setCurrentUser({ ...getCurrentUser(), ...fresh });
+    }
+  } catch { /* fall through to cached user */ }
+
+  // Use fresh DB data if available, otherwise fall back to cached
+  const u = fresh || user;
+
+  // Fill hero
+  document.getElementById('hero-name').textContent   = u.name;
+  document.getElementById('hero-email').textContent  = u.email;
+  document.getElementById('hero-avatar').textContent = u.name.charAt(0).toUpperCase();
+  document.getElementById('hero-avatar').style.background = u.color || '#4f8aff';
+
+  // Fill inputs
+  document.getElementById('inp-name').value  = u.name;
+  document.getElementById('inp-email').value = u.email;
+  document.getElementById('inp-major-display').value = u.major || '—';
+  document.getElementById('inp-nim').value   = u.nim || '';
+
+  // Role badge
+  const roleLabel = ROLE_LABELS[u.role] || u.role;
+  document.getElementById('role-badge').textContent = `RBAC – ${roleLabel.toUpperCase()}`;
+  document.getElementById('role-pill').textContent  = roleLabel.toUpperCase();
+
+  // Hide student-only fields for non-students
+  if (u.role !== 'student') {
+    document.getElementById('student-fields').style.display = 'none';
+    document.getElementById('ov-nim-row').style.display = 'none';
+  }
+  if (!['student','pic','faculty'].includes(u.role)) {
+    document.getElementById('ov-major-row').style.display = 'none';
+    document.getElementById('ov-region-row').style.display = 'none';
+  }
+
+  // Avatar color picker
+  const colorsWrap = document.getElementById('avatar-colors');
+  colorsWrap.innerHTML = AVATAR_COLORS.map(c => `
+    <div class="color-dot ${c === (u.color||'#4f8aff') ? 'selected' : ''}"
+         style="background:${c}" onclick="selectColor('${c}',this)"
+         title="${c}"></div>
+  `).join('');
+
+  // Account overview — all values come straight from the DB
+  document.getElementById('ov-id').textContent      = u.id || u.userId || '—';
+  document.getElementById('ov-email').textContent   = u.email || '—';
+  document.getElementById('ov-role').textContent    = ROLE_LABELS[u.role] || u.role || '—';
+  document.getElementById('ov-major').textContent   = u.major  || '—';
+  document.getElementById('ov-region').textContent  = u.region || '—';
+  document.getElementById('ov-nim').textContent     = u.nim    || '—';
+  document.getElementById('ov-joined').textContent  = formatDate(u.created_at || u.createdAt) || '—';
+  document.getElementById('ov-updated').textContent = formatDate(u.updated_at || u.updatedAt) || '—';
+
+  // Also update the major display input for students
+  document.getElementById('inp-major-display').value = u.major || '—';
+
+  // Permissions
+  const perms = PERMISSIONS[user.role] || [];
+  document.getElementById('perms-list').innerHTML = perms.map(p =>
+    `<div class="perm-item">${p}</div>`
+  ).join('');
+
+  // Stats (load from API)
+  loadStats();
+
+  // Major change request section (students only)
+  if (user.role === 'student') {
+    document.getElementById('major-change-section').style.display = 'block';
+    renderMajorChangeStatus();
+  }
+
+  // Populate major change modal with current values
+  const currentMajorClean = user.major || '';
+  document.getElementById('modal-current-campus').value = user.region || '—';
+  document.getElementById('modal-current-major').value  = currentMajorClean || '—';
+
+  // Populate campus dropdown
+  const campusSel = document.getElementById('modal-new-campus');
+  campusSel.innerHTML = '<option value="" disabled selected>Select campus…</option>';
+  Object.keys(MAJORS_BY_CAMPUS).forEach(campus => {
+    const opt = document.createElement('option');
+    opt.value = opt.textContent = campus;
+    campusSel.appendChild(opt);
+  });
+}
+
+async function loadStats() {
+  try {
+    const res = await apiFetch('/competitions/my');
+    if (!res.ok) return;
+    const data = await res.json();
+    const list = data.data || data || [];
+    const completed = list.filter(c => c.status === 'completed' || c.status === 'approved').length;
+    const pending   = list.filter(c => ['submitted','pic_approved'].includes(c.status)).length;
+    document.getElementById('stat-submissions').textContent = list.length;
+    document.getElementById('stat-completed').textContent   = completed;
+    document.getElementById('stat-pending').textContent     = pending;
+  } catch {}
+}
+
+// ══════════════════════════════════════════════════
+// SUPERADMIN NOTIFICATION PUSH (localStorage bridge)
+// ══════════════════════════════════════════════════
+function pushSuperadminNotification(notif) {
+  const key = 'ct_sa_notifs';
+  let notifs = [];
+  try { notifs = JSON.parse(localStorage.getItem(key)) || []; } catch {}
+  notifs.unshift(notif);
+  // Keep max 50
+  if (notifs.length > 50) notifs = notifs.slice(0, 50);
+  localStorage.setItem(key, JSON.stringify(notifs));
+}
+
+// ══════════════════════════════════════════════════
+// MAJOR CHANGE REQUEST
+// ══════════════════════════════════════════════════
+
+// localStorage key for pending request (mirrors what superadmin reads from API)
+const MCR_KEY = `ct_mcr_${user?.id || user?.userId}`;
+
+function getMajorChangeRequest() {
+  try { return JSON.parse(localStorage.getItem(MCR_KEY)); } catch { return null; }
+}
+
+function renderMajorChangeStatus() {
+  const mcr = getMajorChangeRequest();
+  const wrap = document.getElementById('major-change-status');
+
+  if (!mcr) {
+    wrap.innerHTML = `
+      <button class="btn-request-major" onclick="openMajorModal()">
+        🏛️ Request Major Change
+      </button>
+      <div style="font-size:11px;color:var(--text3);margin-top:8px">
+        Requires Super Admin approval. Your current major won't change until approved.
+      </div>`;
+    return;
+  }
+
+  if (mcr.status === 'pending') {
+    wrap.innerHTML = `
+      <div class="major-pending-banner">
+        ⏳ <strong>Request Pending</strong> — You've requested a change to
+        <strong>${mcr.requestedMajor}</strong>${mcr.requestedCampus ? ' at <strong>' + mcr.requestedCampus + '</strong>' : ''}.<br>
+        <span style="font-size:11px;opacity:.8">Submitted ${formatDate(mcr.submittedAt, true)} · Awaiting Super Admin review</span>
+      </div>
+      <button class="btn btn-ghost btn-sm" style="margin-top:8px" onclick="cancelMajorRequest()">Withdraw Request</button>`;
+    return;
+  }
+
+  if (mcr.status === 'approved') {
+    wrap.innerHTML = `
+      <div style="background:rgba(0,200,150,.1);border:1px solid rgba(0,200,150,.3);border-radius:var(--radius-sm);padding:12px 14px;font-size:12.5px;color:var(--text2)">
+        ✅ <strong style="color:var(--success)">Approved!</strong> Your major has been changed to <strong>${mcr.requestedMajor}</strong>.
+      </div>`;
+    // Apply the change to local session
+    const u = getCurrentUser();
+    if (u && u.major !== mcr.requestedMajor) {
+      u.major = mcr.requestedMajor;
+      localStorage.setItem('ct_user', JSON.stringify(u));
+      document.getElementById('inp-major-display').value = mcr.requestedMajor;
+      document.getElementById('ov-major').textContent = mcr.requestedMajor;
+    }
+    return;
+  }
+
+  if (mcr.status === 'rejected') {
+    wrap.innerHTML = `
+      <div class="major-rejected-banner">
+        ❌ <strong>Request Rejected</strong> — Your request to change to <strong>${mcr.requestedMajor}</strong> was rejected.<br>
+        ${mcr.adminNote ? `<span style="font-size:11.5px;font-style:italic;opacity:.85">Reason: "${mcr.adminNote}"</span>` : ''}
+      </div>
+      <button class="btn-request-major" onclick="openMajorModal()">🏛️ Submit New Request</button>`;
+  }
+}
+
+function onCampusChange() {
+  const campus = document.getElementById('modal-new-campus').value;
+  const majorSel = document.getElementById('modal-new-major');
+  majorSel.innerHTML = '<option value="" disabled selected>Select major…</option>';
+  majorSel.disabled = !campus;
+  if (!campus) return;
+  const majors = MAJORS_BY_CAMPUS[campus] || [];
+  const currentMajorClean = (user.major || '').toLowerCase();
+  majors.forEach(m => {
+    // Skip if it is the student's exact current major AND the campus also matches
+    if (m.toLowerCase() === currentMajorClean && campus === (user.region || '')) return;
+    const opt = document.createElement('option');
+    opt.value = opt.textContent = m;
+    majorSel.appendChild(opt);
+  });
+}
+
+function openMajorModal() {
+  document.getElementById('major-modal-overlay').style.display = 'flex';
+  document.getElementById('modal-reason').value = '';
+  document.getElementById('modal-new-campus').value = '';
+  const majorSel = document.getElementById('modal-new-major');
+  majorSel.innerHTML = '<option value="" disabled selected>Select major…</option>';
+  majorSel.disabled = true;
+}
+
+function closeMajorModal(e) {
+  if (e.target === document.getElementById('major-modal-overlay'))
+    document.getElementById('major-modal-overlay').style.display = 'none';
+}
+
+function submitMajorChangeRequest() {
+  const newCampus = document.getElementById('modal-new-campus').value;
+  const newMajor  = document.getElementById('modal-new-major').value;
+  const reason    = document.getElementById('modal-reason').value.trim();
+
+  if (!newCampus) { toast('Please select a campus / region', 'error'); return; }
+  if (!newMajor)  { toast('Please select a new major', 'error'); return; }
+  if (!reason)    { toast('Please provide a reason', 'error'); return; }
+
+  const currentCampus = user.region || '—';
+
+  const mcr = {
+    id: 'MCR-' + Date.now(),
+    userId:         user.id || user.userId,
+    studentName:    user.name,
+    studentNIM:     user.nim,
+    studentEmail:   user.email,
+    currentCampus,
+    currentMajor:   user.major,
+    requestedCampus: newCampus,
+    requestedMajor: newMajor,
+    reason,
+    status:         'pending',
+    submittedAt:    new Date().toISOString(),
+  };
+
+  // Save to student's own key
+  localStorage.setItem(MCR_KEY, JSON.stringify(mcr));
+
+  // Also push to a global superadmin list
+  const allKey = 'ct_mcr_all';
+  let all = [];
+  try { all = JSON.parse(localStorage.getItem(allKey)) || []; } catch {}
+  // Remove any previous request from this user
+  all = all.filter(r => r.userId !== mcr.userId);
+  all.push(mcr);
+  localStorage.setItem(allKey, JSON.stringify(all));
+
+  // Push notification to superadmin notification store
+  pushSuperadminNotification({
+    id: 'notif-mcr-' + Date.now(),
+    type: 'major_change_request',
+    icon: '🏛️',
+    title: 'Major Change Request',
+    message: `${user.name} (${user.nim || user.email}) has requested a major change from "${user.major}" to "${newMajor}" (${newCampus}).`,
+    href: 'approvals.html',
+    createdAt: new Date().toISOString(),
+    read: false,
+  });
+
+  document.getElementById('major-modal-overlay').style.display = 'none';
+  toast('Major change request submitted! 📬', 'success');
+  renderMajorChangeStatus();
+}
+
+function cancelMajorRequest() {
+  if (!confirm('Withdraw your major change request?')) return;
+  localStorage.removeItem(MCR_KEY);
+
+  // Remove from global list too
+  const allKey = 'ct_mcr_all';
+  let all = [];
+  try { all = JSON.parse(localStorage.getItem(allKey)) || []; } catch {}
+  all = all.filter(r => r.userId !== (user.id || user.userId));
+  localStorage.setItem(allKey, JSON.stringify(all));
+
+  toast('Request withdrawn', 'info');
+  renderMajorChangeStatus();
+}
+
+// ══════════════════════════════════════════════════
+// SAVE PROFILE
+// ══════════════════════════════════════════════════
+async function saveProfile() {
+  const name = document.getElementById('inp-name').value.trim();
+  if (!name) { toast('Name cannot be empty', 'error'); return; }
+
+  const nim = document.getElementById('inp-nim')?.value?.trim();
+
+  try {
+    const res = await apiFetch('/auth/profile', {
+      method: 'PATCH',
+      body: JSON.stringify({
+        name,
+        nim,
+        major: getCurrentUser()?.major || null,
+      }),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      // Sync the full updated user back from DB into localStorage
+      const updated = { ...getCurrentUser(), ...data.user };
+      setCurrentUser(updated);
+      // Refresh all displayed fields from the DB response
+      document.getElementById('hero-name').textContent       = updated.name;
+      document.getElementById('ov-id').textContent           = updated.id || '—';
+      document.getElementById('ov-email').textContent        = updated.email || '—';
+      document.getElementById('ov-role').textContent         = ROLE_LABELS[updated.role] || updated.role || '—';
+      document.getElementById('ov-major').textContent        = updated.major  || '—';
+      document.getElementById('ov-region').textContent       = updated.region || '—';
+      document.getElementById('ov-nim').textContent          = updated.nim    || '—';
+      document.getElementById('ov-joined').textContent       = formatDate(updated.created_at || updated.createdAt) || '—';
+      document.getElementById('ov-updated').textContent      = formatDate(updated.updated_at || updated.updatedAt) || '—';
+      document.getElementById('inp-major-display').value     = updated.major  || '—';
+      toast('Profile updated ✓', 'success');
+    } else {
+      const err = await res.json().catch(() => ({}));
+      toast(err.message || 'Failed to save profile', 'error');
+    }
+  } catch (e) {
+    toast('Network error — profile not saved', 'error');
+  }
+}
+
+async function selectColor(color, el) {
+  document.querySelectorAll('.color-dot').forEach(d => d.classList.remove('selected'));
+  el.classList.add('selected');
+  document.getElementById('hero-avatar').style.background = color;
+  // Persist color to the database
+  try {
+    const res = await apiFetch('/auth/profile', {
+      method: 'PATCH',
+      body: JSON.stringify({ color }),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      setCurrentUser({ ...getCurrentUser(), ...data.user });
+      document.getElementById('ov-updated').textContent = formatDate(data.user.updated_at || data.user.updatedAt) || '—';
+    }
+  } catch { /* color shown optimistically; will sync on next load */ }
+}
+
+// ══════════════════════════════════════════════════
+// SECURITY TAB
+// ══════════════════════════════════════════════════
+async function changePassword() {
+  const cur  = document.getElementById('sec-current').value;
+  const nw   = document.getElementById('sec-new').value;
+  const conf = document.getElementById('sec-confirm').value;
+  if (!cur || !nw) { toast('Fill in all fields', 'error'); return; }
+  if (nw !== conf) { toast('Passwords do not match', 'error'); return; }
+  if (nw.length < 8) { toast('Password must be at least 8 characters', 'error'); return; }
+  try {
+    const res = await apiFetch('/auth/change-password', {
+      method: 'POST',
+      body: JSON.stringify({ currentPassword: cur, newPassword: nw }),
+    });
+    if (res.ok) {
+      toast('Password updated ✓', 'success');
+      ['sec-current','sec-new','sec-confirm'].forEach(id => document.getElementById(id).value = '');
+    } else {
+      const d = await res.json();
+      toast(d.message || 'Failed to update password', 'error');
+    }
+  } catch { toast('Could not reach server', 'error'); }
+}
+
+// ══════════════════════════════════════════════════
+// TABS
+// ══════════════════════════════════════════════════
+function switchTab(name, btn) {
+  document.querySelectorAll('.profile-tab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+
+  document.getElementById('tab-info').classList.remove('active');
+  document.getElementById('tab-security').classList.remove('active');
+  document.getElementById('tab-activity').classList.remove('active');
+
+  if (name === 'info')     document.getElementById('tab-info').classList.add('active');
+  if (name === 'security') document.getElementById('tab-security').classList.add('active');
+  if (name === 'activity') { document.getElementById('tab-activity').classList.add('active'); loadActivity(); }
+}
+
+// Icon + color map for activity types
+const ACTIVITY_META = {
+  'Login':            { icon: '🔑', color: '#4f8aff' },
+  'Logout':           { icon: '🚪', color: '#8b9cb6' },
+  'Account Registered':{ icon: '✨', color: '#00c896' },
+  'Profile Updated':  { icon: '✏️', color: '#7c5cfc' },
+  'Password Changed': { icon: '🔒', color: '#ff8c42' },
+  'Competition':      { icon: '🏆', color: '#ffb547' },
+};
+
+function activityMeta(action) {
+  return ACTIVITY_META[action] || { icon: '📋', color: 'var(--accent)' };
+}
+
+async function loadActivity() {
+  const list = document.getElementById('activity-list');
+  list.innerHTML = '<div style="color:var(--text3);font-size:13px">Loading activity…</div>';
+
+  try {
+    // Fetch profile activity log + competition submissions in parallel
+    const [actRes, compRes] = await Promise.all([
+      apiFetch('/auth/my-activity'),
+      apiFetch('/competitions/my'),
+    ]);
+
+    const events = [];
+
+    // Profile / account events from activity_log table
+    if (actRes.ok) {
+      const actData = await actRes.json();
+      (actData.data || []).forEach(row => {
+        events.push({
+          type:   'log',
+          action: row.action,
+          detail: row.detail,
+          date:   row.created_at,
+        });
+      });
+    }
+
+    // Competition submission events
+    if (compRes.ok) {
+      const compData = await compRes.json();
+      (compData.data || compData || []).forEach(c => {
+        events.push({
+          type:   'competition',
+          action: 'Competition',
+          detail: `Submitted <strong>${c.name}</strong> · ${statusLabel(c.status)}`,
+          date:   c.submittedAt || c.submitted_at || c.created_at,
+        });
+      });
+    }
+
+    if (!events.length) {
+      list.innerHTML = '<div style="color:var(--text3);font-size:13px">No activity yet</div>';
+      return;
+    }
+
+    // Sort newest first
+    events.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+    list.innerHTML = events.slice(0, 20).map(ev => {
+      const meta = activityMeta(ev.action);
+      return `
+        <div class="activity-item">
+          <div class="activity-dot" style="background:${meta.color}"></div>
+          <div>
+            <div class="activity-desc">${meta.icon} ${ev.detail || ev.action}</div>
+            <div class="activity-time">${formatDate(ev.date, true)}</div>
+          </div>
+        </div>`;
+    }).join('');
+
+  } catch (e) {
+    list.innerHTML = '<div style="color:var(--text3);font-size:13px">Could not load activity</div>';
+  }
+}
+</script>
+</body>
+</html>
