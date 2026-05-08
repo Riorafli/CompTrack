@@ -92,16 +92,42 @@ async function doExport(title, format) {
       headers: { Authorization: `Bearer ${token}` }
     });
     if (!res.ok) { toast('Export failed', 'error'); return; }
-    const blob = await res.blob();
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = `comptrack-${type}.csv`;
-    a.click();
-    toast(`"${title}" exported ✓`, 'success');
+
+    const csvText = await res.text();
+    const baseName = 'comptrack-' + type;
+
+    if (format === 'csv') {
+      const blob = new Blob([csvText], { type: 'text/csv;charset=utf-8;' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = baseName + '.csv';
+      a.click();
+      URL.revokeObjectURL(a.href);
+
+    } else if (format === 'excel') {
+      if (typeof XLSX === 'undefined') {
+        await new Promise((resolve, reject) => {
+          const s = document.createElement('script');
+          s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+          s.onload = resolve; s.onerror = reject;
+          document.head.appendChild(s);
+        });
+      }
+      const wb = XLSX.read(csvText, { type: 'string' });
+      const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+      const blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = baseName + '.xlsx';
+      a.click();
+      URL.revokeObjectURL(a.href);
+    }
+
+    toast('"' + title + '" exported as ' + format.toUpperCase() + ' ✓', 'success');
   } catch (err) {
     toast(err.message || 'Export failed', 'error');
   }
-  // dead code below kept for reference only
+    // dead code below kept for reference only
   if (false) {
   const competitions2 = [];
   let rows = [];
