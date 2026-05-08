@@ -288,12 +288,6 @@ async function create(req, res, next) {
     const parsedFunding = Number(funding);
     const safeFunding = isBlank(funding) ? 0 : Math.max(0, Math.floor(parsedFunding));
 
-    // Generate ID
-    const year = new Date().getFullYear();
-    const [countRows] = await pool.query('SELECT COUNT(*) as cnt FROM competitions WHERE id LIKE ?', [`COMP-${year}-%`]);
-    const count = countRows[0].cnt + 1;
-    const id = `COMP-${year}-${String(count).padStart(3, '0')}`;
-
     const status = action === 'submit' ? 'submitted' : 'draft';
     const submittedAt = action === 'submit' ? localNow() : null;
 
@@ -305,14 +299,44 @@ async function create(req, res, next) {
       resolvedMajor = userRows[0]?.major || null;
     }
 
-    await pool.query(
-      `INSERT INTO competitions (id, name, organizer, level, category, date_start, date_end,
-       leader_nim, leader_name, proposal_link, funding, exemption, status, submitted_at, major, submitted_by)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
-      [id, name, organizer, level, category, dateStart || null, dateEnd || null,
-       leader || null, leaderName || null, proposalLink || null, safeFunding, exemption ? 1 : 0,
-       status, submittedAt, resolvedMajor, user.id]
-    );
+    // FR-03 fix: generate ID and INSERT atomically inside a transaction with
+    // a SELECT ... FOR UPDATE lock so concurrent requests can never produce
+    // the same sequence number.
+    const year = new Date().getFullYear();
+    const conn = await pool.getConnection();
+    let id;
+    try {
+      await conn.beginTransaction();
+
+      // Lock the highest existing ID for this year so no other transaction
+      // can read or insert until we commit.
+      const [maxRows] = await conn.query(
+        `SELECT id FROM competitions WHERE id LIKE ? ORDER BY id DESC LIMIT 1 FOR UPDATE`,
+        [`COMP-${year}-%`]
+      );
+      let seq = 1;
+      if (maxRows.length) {
+        const lastSeq = parseInt(maxRows[0].id.split('-')[2], 10);
+        if (!isNaN(lastSeq)) seq = lastSeq + 1;
+      }
+      id = `COMP-${year}-${String(seq).padStart(3, '0')}`;
+
+      await conn.query(
+        `INSERT INTO competitions (id, name, organizer, level, category, date_start, date_end,
+         leader_nim, leader_name, proposal_link, funding, exemption, status, submitted_at, major, submitted_by)
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+        [id, name, organizer, level, category, dateStart || null, dateEnd || null,
+         leader || null, leaderName || null, proposalLink || null, safeFunding, exemption ? 1 : 0,
+         status, submittedAt, resolvedMajor, user.id]
+      );
+
+      await conn.commit();
+    } catch (txErr) {
+      await conn.rollback();
+      throw txErr;
+    } finally {
+      conn.release();
+    }
 
     // Build full member set: start with leader (always is_leader=1), then add other members
     const allNims = new Set();
