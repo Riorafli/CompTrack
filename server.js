@@ -34,8 +34,20 @@ const uploadDir = process.env.UPLOAD_DIR || 'uploads';
 if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
 
 // ── Core middleware ───────────────────────────────────────
+// SEC: never fall back to wildcard CORS in production -- a missing CLIENT_URL
+// would silently allow every origin to make credentialed requests.
+// In development the fallback is 'http://localhost' so the server still starts,
+// but in production we hard-fail at startup so the misconfiguration is obvious.
+const NODE_ENV = process.env.NODE_ENV || 'development';
+const CLIENT_URL = process.env.CLIENT_URL;
+if (!CLIENT_URL && NODE_ENV === 'production') {
+  console.error('FATAL: CLIENT_URL must be set in production to configure CORS. Refusing to start.');
+  process.exit(1);
+}
+const corsOrigin = CLIENT_URL || 'http://localhost';
+
 app.use(cors({
-  origin:  process.env.CLIENT_URL || '*',
+  origin: corsOrigin,
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
 }));
