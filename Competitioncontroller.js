@@ -623,14 +623,26 @@ async function reject(req, res, next) {
 
     if (!note) return res.status(400).json({ success: false, message: 'Rejection note is required' });
 
+    // FR-05 fix: strictly whitelist `type` before it influences any SQL.
+    // An unsanitised noteField interpolated into the query string is a direct
+    // SQL injection vector — this guard ensures only known-safe literals ever
+    // appear in the UPDATE template.
+    if (type !== 'pic' && type !== 'faculty') {
+      return res.status(400).json({ success: false, message: 'Invalid rejection type' });
+    }
+
     const [rows] = await pool.query('SELECT * FROM competitions WHERE id = ?', [id]);
     if (!rows.length) return res.status(404).json({ success: false, message: 'Not found' });
     const comp = rows[0];
 
+    // Column names are now hard-coded literals — nothing from the request
+    // ever reaches the SQL template string.
     const newStatus = type === 'pic' ? 'pic_rejected' : 'faculty_rejected';
-    const noteField = type === 'pic' ? 'pic_note' : 'faculty_note';
-
-    await pool.query(`UPDATE competitions SET status = ?, ${noteField} = ? WHERE id = ?`, [newStatus, note, id]);
+    if (type === 'pic') {
+      await pool.query('UPDATE competitions SET status = ?, pic_note = ? WHERE id = ?', [newStatus, note, id]);
+    } else {
+      await pool.query('UPDATE competitions SET status = ?, faculty_note = ? WHERE id = ?', [newStatus, note, id]);
+    }
     await pool.query(
       'INSERT INTO competition_history (competition_id, status, actor_name, actor_id, note) VALUES (?,?,?,?,?)',
       [id, newStatus, user.name, user.id, note]
@@ -667,6 +679,17 @@ async function reportAchievement(req, res, next) {
 
     if (comp.submitted_by !== user.id && user.role === 'student') {
       return res.status(403).json({ success: false, message: 'Access denied' });
+    }
+
+    // FR-09 fix: achievement can only be reported after faculty approval.
+    // Allowed statuses are 'faculty_approved' (approved but not yet reported)
+    // and 'letter_generated' (letter already issued — re-reporting is valid).
+    const ALLOWED_FOR_ACHIEVEMENT = ['faculty_approved', 'letter_generated'];
+    if (!ALLOWED_FOR_ACHIEVEMENT.includes(comp.status)) {
+      return res.status(400).json({
+        success: false,
+        message: `Achievement can only be reported after Faculty approval. Current status: "${comp.status}".`,
+      });
     }
 
     // BR-03: enforce achievement deadline
