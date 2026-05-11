@@ -192,15 +192,18 @@ async function getUsersByRole(roles) {
 async function getAll(req, res, next) {
   try {
     const { status, level, major, search, page = 1, limit = 50 } = req.query;
+    const parsedPage  = Math.max(1, Number(page)  || 1);
+    const parsedLimit = Math.max(1, Math.min(200, Number(limit) || 50)); // cap at 200 per page
     const user = req.user;
 
-    let query = 'SELECT c.* FROM competitions c WHERE 1=1';
-    const params = [];
+    // ── Build shared WHERE clause (reused for COUNT and data query) ──
+    let where = 'WHERE 1=1';
+    const whereParams = [];
 
     // Students only see their own submissions
     if (user.role === 'student') {
-      query += ' AND c.submitted_by = ?';
-      params.push(user.id);
+      where += ' AND c.submitted_by = ?';
+      whereParams.push(user.id);
     }
 
     // PIC: scope to their major only. If PIC has no major, they see all.
@@ -211,25 +214,45 @@ async function getAll(req, res, next) {
       // 1. comp.major = picMajor exactly
       // 2. comp.major starts with picMajor + " -" (more specific variant)
       // 3. picMajor starts with comp.major + " -" (PIC is more specific than comp)
-      query += " AND (LOWER(c.major) = LOWER(?) OR LOWER(c.major) LIKE LOWER(?) OR LOWER(?) LIKE CONCAT(LOWER(c.major), ' -%'))";
-      params.push(picMajor, picMajor + ' -%', picMajor);
+      where += " AND (LOWER(c.major) = LOWER(?) OR LOWER(c.major) LIKE LOWER(?) OR LOWER(?) LIKE CONCAT(LOWER(c.major), ' -%'))";
+      whereParams.push(picMajor, picMajor + ' -%', picMajor);
     }
 
-    if (status)  { query += ' AND c.status = ?';             params.push(status); }
-    if (level)   { query += ' AND c.level = ?';              params.push(level); }
-    if (major && user.role !== 'pic') { query += ' AND c.major = ?'; params.push(major); }
-    if (search)  { query += ' AND (c.name LIKE ? OR c.id LIKE ?)'; params.push(`%${search}%`, `%${search}%`); }
+    if (status) { where += ' AND c.status = ?';                           whereParams.push(status); }
+    if (level)  { where += ' AND c.level = ?';                            whereParams.push(level); }
+    if (major && user.role !== 'pic') { where += ' AND c.major = ?';      whereParams.push(major); }
+    if (search) { where += ' AND (c.name LIKE ? OR c.id LIKE ?)';         whereParams.push(`%${search}%`, `%${search}%`); }
 
-    query += ' ORDER BY c.created_at DESC LIMIT ? OFFSET ?';
-    params.push(Number(limit), (Number(page) - 1) * Number(limit));
+    // ── FR-12: COUNT total rows matching the filters (no LIMIT/OFFSET) ──
+    const [[{ total }]] = await pool.query(
+      `SELECT COUNT(*) AS total FROM competitions c ${where}`,
+      whereParams
+    );
 
-    const [rows] = await pool.query(query, params);
+    // ── Fetch the current page of data ────────────────────────────────
+    const dataQuery = `SELECT c.* FROM competitions c ${where} ORDER BY c.created_at DESC LIMIT ? OFFSET ?`;
+    const dataParams = [...whereParams, parsedLimit, (parsedPage - 1) * parsedLimit];
+
+    const [rows] = await pool.query(dataQuery, dataParams);
     const competitions = await Promise.all(rows.map(buildCompetition));
 
-    // Temporary debug — remove after confirming fix
-    const debug = user.role === 'pic' ? { pic_major: user.major, pic_region: user.region, total_found: rows.length } : undefined;
+    const totalPages = Math.ceil(total / parsedLimit);
 
-    res.json({ success: true, data: competitions, total: competitions.length, ...(debug && { debug }) });
+    res.json({
+      success: true,
+      data: competitions,
+      // FR-12: pagination meta — total is the count of ALL matching rows,
+      // not just the rows returned on this page.
+      pagination: {
+        total,           // total matching rows across all pages
+        page: parsedPage,
+        limit: parsedLimit,
+        totalPages,
+      },
+      // Keep top-level `total` for any existing frontend code that reads it directly,
+      // but now it correctly reflects the full dataset count.
+      total,
+    });
   } catch (err) {
     next(err);
   }
