@@ -39,7 +39,17 @@ function safeUser(u) {
 // ── POST /api/auth/register ───────────────────────────────
 async function register(req, res, next) {
   try {
-    const { name, email, password, nim, major, region, role = 'student' } = req.body;
+    const { name, email, password, nim, major, region } = req.body;
+
+    // SEC: whitelist roles a user may self-assign at registration.
+    // 'faculty' and 'superadmin' must only be granted by a superadmin via
+    // PATCH /api/users/:id/role -- never accepted from an unauthenticated request.
+    const SELF_REGISTER_ROLES = ['student', 'pic'];
+    const requestedRole = req.body.role;
+    if (requestedRole !== undefined && !SELF_REGISTER_ROLES.includes(requestedRole)) {
+      return res.status(403).json({ success: false, message: 'You are not allowed to register with that role' });
+    }
+    const role = SELF_REGISTER_ROLES.includes(requestedRole) ? requestedRole : 'student';
 
     // PIC accounts must have a major — without one, getAll() would expose all submissions
     if (role === 'pic' && !major) {
@@ -211,6 +221,13 @@ async function updateProfile(req, res, next) {
 async function changePassword(req, res, next) {
   try {
     const { currentPassword, newPassword } = req.body;
+
+    // SEC: validate new password before touching the DB — must match the same
+    // minimum-8-character rule enforced at registration (authcontroller register).
+    if (!newPassword || typeof newPassword !== 'string' || newPassword.length < 8) {
+      return res.status(400).json({ success: false, message: 'New password must be at least 8 characters' });
+    }
+
     const [rows] = await pool.query('SELECT password FROM users WHERE id = ?', [req.user.id]);
     const user = rows[0];
 
