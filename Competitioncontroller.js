@@ -209,7 +209,6 @@ async function getAll(req, res, next) {
     // PIC: scope to their major only. If PIC has no major, they see all.
     if (user.role === 'pic' && user.major) {
       const picMajor = user.major.trim();
-      console.log(`[PIC filter] major="${picMajor}"`);
       // Bidirectional prefix match:
       // 1. comp.major = picMajor exactly
       // 2. comp.major starts with picMajor + " -" (more specific variant)
