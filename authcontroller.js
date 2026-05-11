@@ -16,8 +16,35 @@ function generateTokens(user) {
   return { accessToken, refreshToken };
 }
 
+// SEC: maximum number of concurrent refresh tokens allowed per user.
+// Excess oldest tokens are deleted before the new one is inserted so the
+// table never grows without bound (login-storm or token-hoarding attack).
+const MAX_REFRESH_TOKENS_PER_USER = 5;
+
 async function saveRefreshToken(userId, token) {
   const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+
+  // 1. Purge expired tokens for this user (housekeeping).
+  await pool.query(
+    'DELETE FROM refresh_tokens WHERE user_id = ? AND expires_at <= NOW()',
+    [userId]
+  );
+
+  // 2. Enforce per-user cap: if already at the limit, delete the oldest
+  //    token(s) so the INSERT below cannot exceed MAX_REFRESH_TOKENS_PER_USER.
+  const [active] = await pool.query(
+    'SELECT id FROM refresh_tokens WHERE user_id = ? ORDER BY created_at ASC',
+    [userId]
+  );
+  if (active.length >= MAX_REFRESH_TOKENS_PER_USER) {
+    const excess = active.slice(0, active.length - MAX_REFRESH_TOKENS_PER_USER + 1);
+    await pool.query(
+      `DELETE FROM refresh_tokens WHERE id IN (${excess.map(() => '?').join(',')})`,
+      excess.map(r => r.id)
+    );
+  }
+
+  // 3. Insert the new token.
   await pool.query(
     'INSERT INTO refresh_tokens (user_id, token, expires_at) VALUES (?, ?, ?)',
     [userId, token, expiresAt]
