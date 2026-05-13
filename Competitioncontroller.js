@@ -593,7 +593,7 @@ async function approve(req, res, next) {
 
     // Generate exemption letter if faculty approves + exemption needed
     if (type === 'faculty' && comp.exemption) {
-      await pool.query('UPDATE competitions SET letter_generated = 1 WHERE id = ?', [id]);
+      await pool.query('UPDATE competitions SET letter_generated = 1, status = ? WHERE id = ?', ['letter_generated', id]);
       await pool.query(
         'INSERT INTO competition_history (competition_id, status, actor_name, actor_id) VALUES (?,?,?,?)',
         [id, 'letter_generated', 'System', null]
@@ -610,8 +610,8 @@ async function approve(req, res, next) {
     }
 
     // Notify submitter
-    const submitterRows = await pool.query('SELECT id FROM users WHERE id = ?', [comp.submitted_by]);
-    if (submitterRows[0].length) {
+    const [submitterRows] = await pool.query('SELECT id FROM users WHERE id = ?', [comp.submitted_by]);
+    if (submitterRows.length) {
       const msg = type === 'pic'
         ? `Your submission "${comp.name}" was approved by PIC ✅`
         : `Your submission "${comp.name}" received Faculty approval! 🎉`;
