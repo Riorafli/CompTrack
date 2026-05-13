@@ -26,6 +26,11 @@ const {
   activity,
 } = require('./controllers/Othercontrollers');
 
+if (!process.env.JWT_SECRET) {
+  console.error('FATAL: JWT_SECRET environment variable is not set. Refusing to start.');
+  process.exit(1);
+}
+
 const app  = express();
 const PORT = process.env.PORT || 5000;
 
@@ -66,9 +71,11 @@ const authLimiter = rateLimit({
 });
 const generalLimiter = rateLimit({ windowMs: 60 * 1000, max: 200 });
 
-app.use('/api/auth/login',    authLimiter);
-app.use('/api/auth/register', authLimiter);
-app.use('/api/',              generalLimiter);
+app.use('/api/auth/login',           authLimiter);
+app.use('/api/auth/register',        authLimiter);
+app.use('/api/auth/refresh',         authLimiter);
+app.use('/api/auth/change-password', authLimiter);
+app.use('/api/',                     generalLimiter);
 
 // ── Multer (file uploads) ─────────────────────────────────
 const storage = multer.diskStorage({
